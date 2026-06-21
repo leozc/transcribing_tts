@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Upstream model code (cloned separately; see README)
+VibeVoice/
+
+# Large / generated data — audio, results, model cache
+data/
+out/
+benchmark/sample/
+benchmark/*.log
+benchmark/*.pid
+*.wav
+*.m4a
+*.mp4
+*.srt
+
+# HF / model cache
+.cache/
+
+# OS / editor
+.DS_Store
+*.swp
+
+# Claude harness
+.claude/

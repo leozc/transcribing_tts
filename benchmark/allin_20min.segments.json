@@ -1,0 +1,624 @@
+[
+  {
+    "start_time": 0,
+    "end_time": 10.47,
+    "speaker_id": 0,
+    "text": "All right everybody, welcome back to the number one podcast in the world. It's the All In Podcast. The original quartet is here. The Tsar, David Sachs. How you doing, brother?"
+  },
+  {
+    "start_time": 10.47,
+    "end_time": 11.26,
+    "speaker_id": 1,
+    "text": "I'm good."
+  },
+  {
+    "start_time": 11.26,
+    "end_time": 15.4,
+    "speaker_id": 0,
+    "text": "You had a busy week. A lot of long posts from you on X. We'll get into it."
+  },
+  {
+    "start_time": 16.12,
+    "end_time": 17.84,
+    "speaker_id": 1,
+    "text": "Wait, a lot of what?"
+  },
+  {
+    "start_time": 17.84,
+    "end_time": 20.72,
+    "speaker_id": 0,
+    "text": "Long posting. A lot of long posts."
+  },
+  {
+    "start_time": 20.72,
+    "end_time": 22.22,
+    "speaker_id": 1,
+    "text": "I had like one long post."
+  },
+  {
+    "start_time": 22.22,
+    "end_time": 27.44,
+    "speaker_id": 0,
+    "text": "Oh yeah, how's the carpal tunnel going over there? I had two. Yeah, two. Yeah, that carpal tunnel flaring up."
+  },
+  {
+    "start_time": 27.44,
+    "end_time": 29.86,
+    "speaker_id": 1,
+    "text": "I got a third one teed up. I might use it."
+  },
+  {
+    "start_time": 29.86,
+    "end_time": 30.28,
+    "speaker_id": 0,
+    "text": "one"
+  },
+  {
+    "start_time": 30.28,
+    "end_time": 31.09,
+    "speaker_id": 2,
+    "text": "Got one in the chamber."
+  },
+  {
+    "start_time": 31.09,
+    "end_time": 34.34,
+    "speaker_id": 1,
+    "text": "I got one in the chamber, but I was gonna save it for the pod. It's a good one."
+  },
+  {
+    "start_time": 34.34,
+    "end_time": 38.92,
+    "speaker_id": 0,
+    "text": "Ooh, coming in hot. I wonder who's gonna get this bullet."
+  },
+  {
+    "start_time": 38.92,
+    "end_time": 41.62,
+    "text": "[Music]"
+  },
+  {
+    "start_time": 41.62,
+    "end_time": 43.92,
+    "speaker_id": 1,
+    "text": "Let your winners ride."
+  },
+  {
+    "start_time": 44.46,
+    "end_time": 46.84,
+    "speaker_id": 0,
+    "text": "Rain Man David Sacks"
+  },
+  {
+    "start_time": 48.68,
+    "end_time": 52.94,
+    "speaker_id": 1,
+    "text": "And instead, we open-sourced it to the fans and they've just gone crazy with it."
+  },
+  {
+    "start_time": 52.94,
+    "end_time": 54.26,
+    "speaker_id": 0,
+    "text": "Love you, West."
+  },
+  {
+    "start_time": 54.26,
+    "end_time": 56.95,
+    "text": "[Music]"
+  },
+  {
+    "start_time": 56.95,
+    "end_time": 67.84,
+    "speaker_id": 0,
+    "text": "A cackling, of course. That's the dictator. It's my best feature, Bob. Holly, hop a tea. How you doing, brother?"
+  },
+  {
+    "start_time": 67.84,
+    "end_time": 72.85,
+    "speaker_id": 0,
+    "text": "getting ready for summer? Summer's your lays have been laid on the bed, you're ready to pack it up."
+  },
+  {
+    "start_time": 72.85,
+    "end_time": 76.28,
+    "speaker_id": 2,
+    "text": "Opposite, I got a lot of travel. grinding"
+  },
+  {
+    "start_time": 76.28,
+    "end_time": 84.31,
+    "speaker_id": 0,
+    "text": "Oh, I forgot. you're doing founder-led sales. So the summer of relaxation's over. now he's in the CEO slot."
+  },
+  {
+    "start_time": 84.31,
+    "end_time": 94.52,
+    "speaker_id": 0,
+    "text": "Gotta get out there and do those enterprise sales. And of course, coming off a pretty hot week, comments section was on fire."
+  },
+  {
+    "start_time": 94.52,
+    "end_time": 96.01,
+    "speaker_id": 2,
+    "text": "very pro-Freiber"
+  },
+  {
+    "start_time": 96.01,
+    "end_time": 110.31,
+    "speaker_id": 0,
+    "text": "very, very Freeberg had perhaps his greatest performance. Also, greatest. The first performance when he said more than three sentences. What's going on Freeberg? You went off last episode and and then I think you also with the long posts."
+  },
+  {
+    "start_time": 110.31,
+    "end_time": 115.51,
+    "speaker_id": 2,
+    "text": "You know what's so funny? As the valuation of Ohalo ticks up, he gets more and more based. I love it."
+  },
+  {
+    "start_time": 115.51,
+    "end_time": 116.79,
+    "speaker_id": 0,
+    "text": "He is getting"
+  },
+  {
+    "start_time": 116.79,
+    "end_time": 119.71,
+    "speaker_id": 2,
+    "text": "Welcome to the club. Welcome to the club."
+  },
+  {
+    "start_time": 119.71,
+    "end_time": 122.01,
+    "speaker_id": 0,
+    "text": "He's got trace commas based."
+  },
+  {
+    "start_time": 122.01,
+    "end_time": 128.31,
+    "speaker_id": 2,
+    "text": "Unleash the beast. When you're just a mere singleton, you kind of just keep it to yourself, and then all of a sudden it starts to tick up."
+  },
+  {
+    "start_time": 128.31,
+    "end_time": 132.04,
+    "speaker_id": 0,
+    "text": "nine figure Freiberg. He's like, I got something to lose."
+  },
+  {
+    "start_time": 132.04,
+    "end_time": 133.55,
+    "speaker_id": 2,
+    "text": "Wait for ten figure free."
+  },
+  {
+    "start_time": 133.55,
+    "end_time": 142.86,
+    "speaker_id": 0,
+    "text": "Ten figure free. like, YOLO. You also with the long posts. You and Nancy Pelosi uh making sweet sweet"
+  },
+  {
+    "start_time": 142.86,
+    "end_time": 146.26,
+    "speaker_id": 3,
+    "text": "Here's what's happening. He's starting to tell me. He started with the Let him go."
+  },
+  {
+    "start_time": 147.84,
+    "end_time": 159.58,
+    "speaker_id": 3,
+    "text": "What is being formed in the United States right now is the great American Politburo, okay? The great American Politburo is formed. The new oligarchs are taking their seats."
+  },
+  {
+    "start_time": 159.58,
+    "end_time": 160.52,
+    "speaker_id": 2,
+    "text": "Let it go."
+  },
+  {
+    "start_time": 160.52,
+    "end_time": 192.54,
+    "speaker_id": 3,
+    "text": "The great, the great American Politburo is being formed. The new oligarchs are taking their seats. They're arranging the chairs. They're determining who will be chairman of the Politburo, who will assign what workforce to do what efforts for them, which six hundred million dollar stock trades their families will make to benefit and enrich themselves as they fly around in their private jets on the taxpayers' money, and we are watching it all before our very eyes as individual liberties are eroded. I am fired up about it. I see it happening."
+  },
+  {
+    "start_time": 192.54,
+    "end_time": 195.75,
+    "speaker_id": 0,
+    "text": "You know, Sachs is on the show this week. You can't just take strays like that."
+  },
+  {
+    "start_time": 195.75,
+    "end_time": 199.03,
+    "speaker_id": 2,
+    "text": "Freyberg, expand on who the Politburo is."
+  },
+  {
+    "start_time": 199.03,
+    "end_time": 237.85,
+    "speaker_id": 3,
+    "text": "Yeah, so so basically the the Politburo is the leaders who elect themselves to dictate the flow of the economy, the allocation of capital, what work individual they're allowed to do and what what activities they're allowed to do in an unfree society, which is what they're creating. They are the true oligarchs. And this is Elizabeth Warren, Bernie Sanders, Ro Khanna. This is the uh the group that is trying to coalesce power and create for themselves a system whereby they have greater influence, greater control over aspects of the economy. They want to seize the means of production. They want to control education. They want to control media."
+  },
+  {
+    "start_time": 237.85,
+    "end_time": 264.44,
+    "speaker_id": 3,
+    "text": "and anytime there's an effort by an individual enterprise or an individual themselves to go out and build a business and succeed and do something that's outside of their scope and their span of control, they lose their fucking minds over it. And that's what we're seeing. So I react to their tweeting and their bullshit where they're basically trying to contort things about inequality and fairness and justice when the truth is, they are the rising empire, the evil empire in Star Wars."
+  },
+  {
+    "start_time": 264.44,
+    "end_time": 302.09,
+    "speaker_id": 3,
+    "text": "They are the folks who want to take from all of us what we were endowed with when this nation was started and what many people came to this country for, which is individual freedom and liberty. The ability to build a business in peace, the ability to make decisions, to do what you want with your own assets and to have functionally private property. And they're taking it all away and they're trying to take it all away and we're watching piece by piece, step by step. So they are forming a politburo where they can effectively control the economy, control education, control the media, and tell us all what we can and can't do and say. And it's frustrating to me to watch it because it's masqueraded as bullshit virtue, as justice, as equity."
+  },
+  {
+    "start_time": 302.09,
+    "end_time": 314.26,
+    "speaker_id": 3,
+    "text": "it's a bunch of fucking nonsense words that they use to try and make themselves seem virtuous when in the end of the day they are fundamentally evil. And I hate watching it. So that's why I react so... mm... aggressively to it."
+  },
+  {
+    "start_time": 314.26,
+    "end_time": 318.71,
+    "speaker_id": 2,
+    "text": "Freyberg, I think you said something that's really important which is they they present it as virtue."
+  },
+  {
+    "start_time": 318.71,
+    "end_time": 319.7,
+    "speaker_id": 3,
+    "text": "That's right."
+  },
+  {
+    "start_time": 319.7,
+    "end_time": 333.27,
+    "speaker_id": 2,
+    "text": "Put yourself in the body of a person that's probably middle of the roadish but is falling for it. Why do you think they're falling for it?"
+  },
+  {
+    "start_time": 333.27,
+    "end_time": 372.97,
+    "speaker_id": 3,
+    "text": "Because they have needs and wants and desires individually that this person is saying this system, this evil empire will give to you. If you take the knee, we will give you the education for free. We will give you the childcare for free. We will give you the food for free. We will give you the the paycheck every week. We will give you, we will give you, we will give you. Those promises in a democratic system like this or in a fake democratic system like this are what make people feel like the the virtuous uh offerings will align with their individual needs and wants. And I think that that's why people say like, okay, that's good. Free childcare for all."
+  },
+  {
+    "start_time": 372.97,
+    "end_time": 409.37,
+    "speaker_id": 3,
+    "text": "There is inequality in the world. There is disparity in wealth. There is disparity in asset ownership. And your solution, despite, you know, the the loss of liberty along the way and the loss of economic mobility that arises from what you're offering me. And this is really key. People don't realize the value of the United States, the power of this nation was to give people individual liberty which which unlocks agency to progress yourself, to educate yourself, to make money, to give yourself more assets and more freedom and more flexibility than you had. Economic mobility is the key to the United States."
+  },
+  {
+    "start_time": 409.37,
+    "end_time": 443.1,
+    "speaker_id": 3,
+    "text": "You do not get economic mobility if the government is giving you a job or giving you money. You lose economic mobility. You become indentured to the government. Everyone wants more. Everyone wants something that they don't have. But the truth is that the more the government is giving it to you, the less you have mobility, the more you are indentured, the more you are enslaved, and the more we are limiting people's ability to progress. And I think that that's what's really so frustrating for me is that people sign up to this, to your point, Tim, and they're like, okay, that's great. I I get to have this and I get to have that and I get to have that. But at the end of the day, you're giving all of your liberties up. You're giving all of your progress up."
+  },
+  {
+    "start_time": 443.1,
+    "end_time": 450.66,
+    "speaker_id": 0,
+    "text": "You become more of the state is what you're saying. Yeah, you're looking for them and you don't have agency to pursue your own personal freedom."
+  },
+  {
+    "start_time": 451.23,
+    "end_time": 462.27,
+    "speaker_id": 3,
+    "text": "One thing I believe to be 100% true is that no human being that's ever been alive has ever lived up to their true capacity as a human. Like human agency is limitless."
+  },
+  {
+    "start_time": 462.27,
+    "end_time": 462.98,
+    "speaker_id": 2,
+    "text": "limitless"
+  },
+  {
+    "start_time": 462.98,
+    "end_time": 463.75,
+    "speaker_id": 3,
+    "text": "Limitless"
+  },
+  {
+    "start_time": 463.75,
+    "end_time": 490.32,
+    "speaker_id": 3,
+    "text": "And and the truth is, like anytime that you create a system with the government that's giving people stuff, you are taking away people's agency. And so that is what is so so sad about the whole thing is like human agency is the one thing that we have unlimited capacity, unlimited infinite upside. Every human does. And and to and shroud yourself in this government burden, thinking that it is a relief."
+  },
+  {
+    "start_time": 490.32,
+    "end_time": 496.37,
+    "speaker_id": 0,
+    "text": "Well then that creates a sense of helplessness because you're always looking to the government to solve your problems."
+  },
+  {
+    "start_time": 496.37,
+    "end_time": 503.02,
+    "speaker_id": 2,
+    "text": "The threshold for learned helplessness is far, far lower than one may think."
+  },
+  {
+    "start_time": 503.04,
+    "end_time": 529.3,
+    "speaker_id": 2,
+    "text": "I grew up on welfare. And my mother was initially a housekeeper and then she was a nurse's aide. She was probably making eight, nine, ten bucks an hour. My father couldn't get a job. So we were on welfare. And welfare was probably seventeen, eighteen, nineteen thousand dollars a year at the time in Canada. And it's a family of five."
+  },
+  {
+    "start_time": 529.54,
+    "end_time": 563.15,
+    "speaker_id": 2,
+    "text": "But it was just enough that my dad just spent this cycle between drinking and not working, drinking and not working. And he would try in bursts. And you know, I I think that it must have been deeply frustrating for him, obviously. So I want to be compassionate to the struggle that he went through. But man, I would have thought that seventeen thousand is not nearly enough support and so it would animate you to try to do whatever it took. But could he have gotten a job making eight, nine, ten bucks an hour at a store? He could have."
+  },
+  {
+    "start_time": 563.15,
+    "end_time": 575.28,
+    "speaker_id": 2,
+    "text": "He chose not to. And so my recollection of being a ward of the state is that the threshold for that helplessness is far lower than one may think."
+  },
+  {
+    "start_time": 575.3,
+    "end_time": 583.56,
+    "speaker_id": 2,
+    "text": "And then if you actually stack all these other things, people will just fall into their worst proclivities."
+  },
+  {
+    "start_time": 583.62,
+    "end_time": 623.37,
+    "speaker_id": 2,
+    "text": "And they will be a shell and a shadow of what they could be. My dad was in my mind the giant who had all this potential unfulfilled. And I keep that because I want a positive sense of who he was to me despite all of the ups and downs and the stuff that he went through and how it negatively affected me at times. But man, if you want a whole country of those people, what happens when you're giving people thirty, forty, fifty, sixty, seventy, eighty thousand dollars a year of stuff? One, at some point you're not going to be able to pay for it. But two, you're going to reduce people to a shell of what their potential is. And that is not good. I have lived it and I am warning all of you."
+  },
+  {
+    "start_time": 623.37,
+    "end_time": 625.46,
+    "speaker_id": 2,
+    "text": "Be careful what you wish for."
+  },
+  {
+    "start_time": 625.76,
+    "end_time": 664.67,
+    "speaker_id": 3,
+    "text": "The flip side of it, by the way, as you point out, you can't pay for it. What ends up happening is the moment that we find ourselves in today, and we see it in and we'll talk about Pritzker's law in Illinois that passed this week. But we are now at a moment where we are saying there is no longer private property in the United States. This is one of the foundational rights that the founders of the United States tried to create a distinction between these other nations that everyone flees from, where a monarchy or a totalitarian government or some communist system says everyone owns everything together or some small number of people own and control everything."
+  },
+  {
+    "start_time": 664.67,
+    "end_time": 698.58,
+    "speaker_id": 3,
+    "text": "And that's what this always comes down to, whether it's a socialist state or a communist state or a monarchy or some other totalitarian regime, there's a small number of people that own and control everything. And that is the brink that we're on because they are trying to say for the first time ever, there is no longer private property in the United States. That if the government can say everything that you've already paid your income tax on and then you've bought and you now own, the government can take a piece of it every year based on the vote and the budgetary needs of an irresponsible fiscal legislature, we've lost it all."
+  },
+  {
+    "start_time": 698.58,
+    "end_time": 699.16,
+    "speaker_id": 0,
+    "text": "Yeah"
+  },
+  {
+    "start_time": 699.16,
+    "end_time": 713.43,
+    "speaker_id": 3,
+    "text": "And that's where we are. And we see this, it just passed in Illinois. People think it's just crypto, just like they think that billionaire tax is just billionaires. But anytime the government can take your private property after you've paid your taxes, bought something and put it in your garage, we are done for."
+  },
+  {
+    "start_time": 713.43,
+    "end_time": 714.52,
+    "speaker_id": 0,
+    "text": "Yeah, we're going to get into it."
+  },
+  {
+    "start_time": 714.52,
+    "end_time": 720.79,
+    "speaker_id": 3,
+    "text": "that is that is when the Politburo has unlimited capacity to tax and take and do what they want."
+  },
+  {
+    "start_time": 720.79,
+    "end_time": 721.6,
+    "speaker_id": 0,
+    "text": "Here's the deal."
+  },
+  {
+    "start_time": 721.6,
+    "end_time": 722.52,
+    "speaker_id": 3,
+    "text": "the moment we're at"
+  },
+  {
+    "start_time": 722.52,
+    "end_time": 757.08,
+    "speaker_id": 0,
+    "text": "Well, and the the super sinister part to to dovetail what both of you are saying and to give some grace to your dad, Chamath, in the studies of learned helplessness for people who, you know, are trying to guess what that term is, who who haven't heard it before, a psychological condition, if you give people a hard problem to solve, like an impossible problem to solve, they don't solve it, then you give them easy problems to solve, they don't solve the easy ones, and they become depressed. And then they attribute their depression to themselves. They internalize it, in other words. If you give people easier problems to solve, uh, and make them increasingly harder as you go, they become empowered."
+  },
+  {
+    "start_time": 757.08,
+    "end_time": 757.83,
+    "speaker_id": 0,
+    "text": "they have agency"
+  },
+  {
+    "start_time": 757.83,
+    "end_time": 791.12,
+    "speaker_id": 0,
+    "text": "they feel like they can solve problems and then when they get stuck on something, they don't attribute it internally. And this is the why alcoholism is so pernicious in our society as well is because when you start attributing it to yourself and then you start self-medicating, you try to dull these feelings because you're depressed. And I've had many friends who've gone through it and family members. And this is why having agency is so important. This is why endless unemployment is so dangerous. Uh, and you need to taper people off and you need to give them a chance to be successful. If your dad had taken that ten, twelve dollar an hour job, he would have become the manager. Then he would have become the owner of the place."
+  },
+  {
+    "start_time": 791.12,
+    "end_time": 793.84,
+    "speaker_id": 2,
+    "text": "So the coda to your story is"
+  },
+  {
+    "start_time": 795.33,
+    "end_time": 816.25,
+    "speaker_id": 2,
+    "text": "At some point I think, and I don't know because my mom doesn't share this with me, there was some kind of breaking point because it was a really violent household and then near the end of my high school career when I left, things got, I think, materially better. And part of it was because he got a job."
+  },
+  {
+    "start_time": 816.31,
+    "end_time": 826.89,
+    "speaker_id": 2,
+    "text": "And ultimately he got a job, pretty low-level clerical work at the government, but we were so proud of him. And he did that until he passed away."
+  },
+  {
+    "start_time": 827.51,
+    "end_time": 840.21,
+    "speaker_id": 2,
+    "text": "But it changed him completely. Now, it could also have been because he had gotten older, you know, but drank a lot less and was much more regulated."
+  },
+  {
+    "start_time": 840.21,
+    "end_time": 840.86,
+    "speaker_id": 0,
+    "text": "Yeah"
+  },
+  {
+    "start_time": 840.86,
+    "end_time": 842.84,
+    "speaker_id": 2,
+    "text": "So I completely agree with what you're saying."
+  },
+  {
+    "start_time": 842.84,
+    "end_time": 856.03,
+    "speaker_id": 0,
+    "text": "It's a really sad phenomenon. And you and you see it sometimes in successful people. They get successful very quick, they don't attribute to their own success, they get up out of bed in the morning, they don't have to get out, they start drinking, they don't take a job, and and they're affluent, but they're just not motivated, they don't have purpose."
+  },
+  {
+    "start_time": 856.03,
+    "end_time": 866.78,
+    "speaker_id": 0,
+    "text": "All right, let's get started. We got a huge docket to get through today. SpaceX had a record-breaking IPO and $60 billion Kersher deal was quickly consummated as predicted."
+  },
+  {
+    "start_time": 866.9,
+    "end_time": 904.35,
+    "speaker_id": 0,
+    "text": "Friend of the pod, Elon Musk took SpaceX public last Thursday, $135 a share. A lot of people got to participate, Robinhood, Charles Schwab, everybody talking about they got an allocation, one share, 10 shares, and they filled the green shoe. $85 billion raise, that's three times what Saudi Aramco raised back in 2019. Stock closed up 19% to 161, market cap above two trillion. And uh at the taping of this pod, $177, not too shabby. On Tuesday, SpaceX exercised its option to acquire Cursor. That's the coding agent that got shivved by, speaking of Anthropic and Claude."
+  },
+  {
+    "start_time": 904.35,
+    "end_time": 942.92,
+    "speaker_id": 0,
+    "text": "They originally used Claude to be the backend of Cursor, and then Claude and Anthropic had an internal Skunkworks project. They told Cursor allegedly they were never going to release it to the public, they would never have a coding agent, and they did. And that led to this incredible opportunity for Cursor to make their own model and use Elon's hardware at Colossus. They're doing four billion in revenue, so they got bought for 15 times revenue. SpaceX trading, I don't know, 60, 70 times revenue, so a great deal for everybody. SpaceX briefly passed Amazon and Microsoft, which is mind-blowing to be the fourth most valuable company. Amazon's revenue in 25, 717 billion."
+  },
+  {
+    "start_time": 942.92,
+    "end_time": 970.96,
+    "speaker_id": 0,
+    "text": "Microsoft's 2025, 282 billion. SpaceX's 2025 only 19 billion. So, um, they that's corrected a bit. And now SpaceX is sitting at seventh largest company right behind TSMC. That's the Taiwan Semiconductor Corporation. So, let's just go around the horn here. Congratulations to Elon and the team over there. Elon exercised his Tesla shares that he had coming from his employment uh there. I think he's done a pretty good job as CEO."
+  },
+  {
+    "start_time": 970.96,
+    "end_time": 985.04,
+    "speaker_id": 0,
+    "text": "you got a little bonus. So that sets up potentially Chamath, the merger of the two big companies. Just broad strokes, what's your take from takeaway from the SpaceX IPO? Seems to have been executed flawlessly."
+  },
+  {
+    "start_time": 985.04,
+    "end_time": 993.04,
+    "speaker_id": 2,
+    "text": "It's an incredible company. It's a one of one. It's just a unique, unique animal. I think that"
+  },
+  {
+    "start_time": 994.45,
+    "end_time": 1007.81,
+    "speaker_id": 2,
+    "text": "the highest price to sales was essentially these last few days and now it's just going to grow into its valuation and generally just grow valuation."
+  },
+  {
+    "start_time": 1008.83,
+    "end_time": 1041.15,
+    "speaker_id": 2,
+    "text": "Nick, play the clip. The acquisition was essentially negotiated and the way that it's structured is so that the S1 doesn't go stale. So I think the way that it was announced has more to do with the fact that they don't want to slow down and have to rewrite parts of the S1, have to redo the disclosures, have to redo the risks. The deal is effectively done. But what's so smart is that where is SpaceX today? Let's call it a trillion. Where could it be? Just for the purpose of this argument, let's say two trillion."
+  },
+  {
+    "start_time": 1041.15,
+    "end_time": 1050.52,
+    "speaker_id": 2,
+    "text": "So when the deal gets done on a stock for stock basis, it's going to be again, if it's 60 billion in tomorrow dollars, effectively Elon's gotten a 50% discount."
+  },
+  {
+    "start_time": 1050.52,
+    "end_time": 1051.23,
+    "speaker_id": 0,
+    "text": "Hmm."
+  },
+  {
+    "start_time": 1051.23,
+    "end_time": 1051.88,
+    "speaker_id": 2,
+    "text": "Nailed it."
+  },
+  {
+    "start_time": 1051.88,
+    "end_time": 1054.12,
+    "speaker_id": 0,
+    "text": "We'll give that a Okay, sure enough."
+  },
+  {
+    "start_time": 1054.12,
+    "end_time": 1061.82,
+    "speaker_id": 2,
+    "text": "What I didn't factor as well is that the revenue run rate would essentially double on top of that. So, he essentially got Cursor for 15 billion."
+  },
+  {
+    "start_time": 1061.82,
+    "end_time": 1062.55,
+    "speaker_id": 0,
+    "text": "You got a good deal."
+  },
+  {
+    "start_time": 1062.55,
+    "end_time": 1076.21,
+    "speaker_id": 2,
+    "text": "which is unbelievable. His business intellect is off the charts. That is an incredible deal. And now the consolidation phase will begin and we're going to see Tesla and SpaceX merge. And it's going to be glorious."
+  },
+  {
+    "start_time": 1076.21,
+    "end_time": 1098.61,
+    "speaker_id": 0,
+    "text": "Sach, you can also take a uh a little bit of a victory lap here. You've been friends with Elon since PayPal days, obviously, and um you obviously were an investor in SpaceX for a long time. Your thoughts on what this means for the company? Obviously, it's an incredible milestone, but what does it mean for the company going forward? Obviously champagne bottles, yada yada, but what does it practically mean for SpaceX and Elon going forward?"
+  },
+  {
+    "start_time": 1098.61,
+    "end_time": 1106.62,
+    "speaker_id": 1,
+    "text": "Well, in a certain sense, as we all know, this was the biggest IPO of all time and so in that sense it was a huge milestone for this company."
+  },
+  {
+    "start_time": 1106.62,
+    "end_time": 1117.35,
+    "speaker_id": 1,
+    "text": "that Elon and many other people have been working on for a very long time. I mean, this has been 25 years in the making. When people turn on the TV and they see this, they think that this is just some sort of overnight success. It's not."
+  },
+  {
+    "start_time": 1117.35,
+    "end_time": 1156.43,
+    "speaker_id": 1,
+    "text": "A lot of people had to work very hard to get to this point. But at the same time that it was this historic IPO, it's also the case that in a certain sense, this didn't change anything for Elon. You know, I think when people read that he's the world's first trillionaire, they start to think that he must have gobs of money, a trillion dollars sitting in a bank account. And that's not true. That's not how it works. That's not how wealth is created. He doesn't have one more dollar in the bank than he did the day before the IPO. He doesn't have more stuff, doesn't have more houses or anything that you could buy with money. Literally, his balance sheet is exactly the same. It consists of the same thing."
+  },
+  {
+    "start_time": 1156.43,
+    "end_time": 1185.17,
+    "speaker_id": 1,
+    "text": "It's just that the public is putting a higher value on the shares of stock in SpaceX that he already owned. And he's not selling, he's under a one-year lockup and I predict that he'll hold on for much longer than that because creating SpaceX is his life's work. So, you know, you see all these people reacting with tremendous animosity and basically saying that, you know, we can't allow the world's first trillionaire, you know, stuff like that. Look, he doesn't have more cash than he did the day before the IPO."
+  },
+  {
+    "start_time": 1185.17,
+    "end_time": 1186.27,
+    "speaker_id": 0,
+    "text": "for wealth, clearly."
+  },
+  {
+    "start_time": 1186.27,
+    "end_time": 1191.62,
+    "speaker_id": 1,
+    "text": "it's that other people are placing a greater value on what he's built."
+  },
+  {
+    "start_time": 1191.62,
+    "end_time": 1192.34,
+    "speaker_id": 0,
+    "text": "Yeah."
+  },
+  {
+    "start_time": 1192.34,
+    "end_time": 1200.0,
+    "speaker_id": 1,
+    "text": "And I think this is very important for people to understand is that there's a big difference between stuff and then the"
+  }
+]

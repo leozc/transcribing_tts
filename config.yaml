@@ -1,0 +1,17 @@
+# tts_serve MVP configuration
+model: microsoft/VibeVoice-ASR     # HF model id (resident, loaded once)
+device: cuda
+max_new_tokens: 16384              # ~enough for 20-min meetings; raise for 60-min
+denoise: false                     # Demucs denoise — off by default (unproven for speech)
+
+paths:
+  inbox: data/inbox
+  done: data/done
+  failed: data/failed
+  results: data/results
+
+# Default hotwords when a file has no sidecar .json (names/terms to bias ASR).
+default_hotwords: ""
+
+# Watch mode poll interval (seconds)
+poll_seconds: 5

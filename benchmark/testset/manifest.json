@@ -1,0 +1,94 @@
+{
+  "description": "tts_serve ASR/diarization evaluation set — diverse meetings/talks for VibeVoice-ASR. Built from public YouTube sources (+ one private Google Drive sample). Each YouTube entry is reproducible via build_testset.py.",
+  "audio_format": "16 kHz mono WAV",
+  "items": [
+    {
+      "id": "v1_chinese",
+      "source_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=ttkd0t5qTD4",
+      "clip": "0-1200",
+      "language": "zh-en (code-switching)",
+      "expected_speakers": 2,
+      "model_speakers": 2,
+      "description": "Chinese AI interview podcast (host 小俊 + guest 姚舜宇, Google DeepMind); heavy CN/EN code-switching",
+      "audio": "benchmark/sample/v1_chinese_20min_16k.wav"
+    },
+    {
+      "id": "v2_english",
+      "source_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=aR20FWCCjAs",
+      "clip": "0-1200",
+      "language": "en",
+      "expected_speakers": 2,
+      "model_speakers": 2,
+      "description": "English-only conversation",
+      "audio": "benchmark/sample/v2_english_20min_16k.wav"
+    },
+    {
+      "id": "v3_allin",
+      "source_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=3Amlu4y94Ho",
+      "clip": "0-1200",
+      "language": "en",
+      "expected_speakers": 4,
+      "model_speakers": 4,
+      "description": "All-In podcast — 4 hosts; multi-speaker English with overlap/intro music",
+      "audio": "benchmark/sample/allin_20min_16k.wav"
+    },
+    {
+      "id": "v4_3people",
+      "source_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=Tx9jT2c6e3U",
+      "clip": "0-1200",
+      "language": "en",
+      "expected_speakers": 4,
+      "model_speakers": 5,
+      "description": "4-person discussion; model over-counts speakers by 1 (5 vs 4)",
+      "audio": "benchmark/sample/v4_3people_20min_16k.wav"
+    },
+    {
+      "id": "v5_2people",
+      "source_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=Mmj_G9RlW-I",
+      "clip": "0-1200",
+      "language": "en",
+      "expected_speakers": 2,
+      "model_speakers": 2,
+      "description": "2-person investor interview",
+      "audio": "benchmark/sample/v5_2people_20min_16k.wav"
+    },
+    {
+      "id": "v6_chinese_pure",
+      "source_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=IVYL3LU_rDs",
+      "clip": "0-1200",
+      "language": "zh",
+      "expected_speakers": 1,
+      "model_speakers": 1,
+      "description": "Dense pure-Chinese monologue (VPN/防火长城/网信办)",
+      "audio": "benchmark/sample/v6_chinese_pure_20min_16k.wav"
+    },
+    {
+      "id": "v7_eric_schmidt",
+      "source_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=I2F2xFvt4mQ",
+      "clip": "full",
+      "language": "en",
+      "expected_speakers": 2,
+      "model_speakers": null,
+      "description": "Dr. Eric Schmidt: The Future of Technology at 300 — FULL 41-min talk/interview (long-form pass)",
+      "audio": "benchmark/sample/v7_eric_schmidt_full_16k.wav"
+    },
+    {
+      "id": "gd1_crescent_key",
+      "source_type": "gdrive",
+      "url": "gdrive://1feEXzCbCqABoH-Gh5POmMUmiAQK79UiR",
+      "clip": "full",
+      "language": "en",
+      "expected_speakers": 2,
+      "model_speakers": 3,
+      "description": "PRIVATE Google Drive sample — Pelion VC meeting (Skyler Seymour), ~26 min; model over-counts (3 vs 2). Requires Drive auth; not rebuildable without access.",
+      "audio": null
+    }
+  ]
+}

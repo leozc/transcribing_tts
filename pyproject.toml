@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tts-serve"
+version = "0.1.0"
+description = "Self-hosted meeting transcription (VibeVoice-ASR) — MVP"
+requires-python = ">=3.10"
+dependencies = [
+    # Core inference deps come from the vibevoice package (installed editable
+    # from ./VibeVoice) plus a CUDA-12.1 torch matched to the host driver:
+    #   uv pip install torch==2.5.1 torchaudio==2.5.1 \
+    #       --index-url https://download.pytorch.org/whl/cu121
+    #   uv pip install -e ./VibeVoice
+    "pyyaml",
+]
+
+[project.scripts]
+tts-serve = "tts_serve.cli:main"
+
+[project.optional-dependencies]
+s3 = ["boto3"]
+gdrive = ["gdown", "google-api-python-client", "google-auth"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
