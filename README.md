@@ -1,4 +1,4 @@
-# tts_serve — 会议录音转写系统 (MVP)
+# tts_serve — Meeting Transcription (MVP)
 
 Self-hosted, offline meeting transcription on a single RTX 4090. Produces
 speaker-attributed, timestamped transcripts (txt + SRT) from audio, using

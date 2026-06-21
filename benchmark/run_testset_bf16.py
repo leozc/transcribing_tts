@@ -51,6 +51,8 @@ def transcribe_any(asr: VibeVoiceASR, wav: str, work: Path) -> tuple[list[dict],
                        check=True, capture_output=True)
         res = asr.transcribe(str(cw), max_new_tokens=14336)
         segs = normalize_segments(res.segments)
+        # TODO(voiceprint): chunk-local speaker ids don't align across chunks ->
+        # inflated speaker count. Remap via CAM++ embeddings. See TODO.md.
         for s in segs:
             s["start"] += start
             s["end"] += start

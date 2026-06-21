@@ -59,6 +59,10 @@ def main():
         )
         res = asr.transcribe(str(chunk_wav), max_new_tokens=args.max_new_tokens)
         segs = normalize_segments(res.segments)
+        # TODO(voiceprint): speaker ids are chunk-local and do NOT correspond across
+        # chunks, inflating the global speaker count. Fix via CAM++/3D-Speaker
+        # embeddings: cluster per-segment fingerprints across chunks and remap to a
+        # single global identity. See TODO.md.
         for s in segs:  # offset to absolute time
             s["start"] += start
             s["end"] += start
