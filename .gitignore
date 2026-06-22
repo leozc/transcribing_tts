@@ -39,3 +39,4 @@ build/
 
 # service secrets (systemd EnvironmentFile)
 .env_service
+data.migrated/

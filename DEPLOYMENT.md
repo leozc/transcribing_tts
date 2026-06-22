@@ -68,7 +68,7 @@ logout/reboot): `tts-api` runs the standalone **binary**, `tts-worker` runs the 
 GPU worker. Both `Restart=on-failure`.
 ```bash
 bash scripts/build_api_binary.sh          # produce dist/tts-serve-api
-bash scripts/install_systemd.sh           # install + daemon-reload (data=./data, port 8088)
+bash scripts/install_systemd.sh           # install + daemon-reload (state in ~/.local/state/tts_serve, port 8088, recycle GPU)
 systemctl --user enable --now tts-api tts-worker
 systemctl --user status tts-api tts-worker
 ```
@@ -76,25 +76,28 @@ Secrets/config (optional): put `DEEPSEEK_API_KEY=…`, `AWS_*`, `YT_COOKIES=…`
 `TTS_SERVE_API_KEY=…` in `./.env_service` (gitignored; read via `EnvironmentFile=-`).
 Stop/remove: `systemctl --user disable --now tts-worker tts-api` (this frees the GPU).
 
-## Model allocation (GPU) — resident vs on-demand
-The worker can keep the model **resident** (loaded at startup, hot forever) or load it
-**on demand** and free the GPU when idle — set `TTS_SERVE_IDLE_UNLOAD` (seconds; `0` =
-resident):
+## Model allocation (GPU) — three modes
+This is async, latency-tolerant batch work (~10×1 h meetings/day ≈ ~75 min GPU/day), so
+pinning ~17 GB 24/7 wastes a shared GPU for no benefit. Two env vars pick the mode:
+`TTS_SERVE_IDLE_UNLOAD` (idle seconds, `0` = resident) and `TTS_SERVE_GPU_RECYCLE` (`1`
+= recycle the worker process).
 
-| | resident (`=0`) | on-demand (`=600`, the unit default) |
-|---|---|---|
-| VRAM when idle | ~17 GB pinned 24/7 | freed (only ~0.5 GB CUDA context remains) |
-| first-task latency | ~0 (always hot) | + model load (≈4 s warm / page-cached, longer cold) |
-| best for | a **dedicated** GPU box | a **shared** GPU (reclaim it between bursts) |
+| mode | env | VRAM when idle | first-task latency | best for |
+|---|---|---|---|---|
+| **resident** | `IDLE_UNLOAD=0` | ~17 GB pinned 24/7 | ~0 (always hot) | a **dedicated** GPU box |
+| **idle-unload** | `IDLE_UNLOAD=N`, `RECYCLE=0` | weights freed, **~0.5 GB** context lingers | + model load | one-process simplicity |
+| **recycle** ⭐ | `IDLE_UNLOAD=N`, `RECYCLE=1` | **0** (fully freed) | + model load (≈4 s warm) | a **shared** GPU |
 
-This is async, latency-tolerant batch work (~10×1 h meetings/day ≈ ~75 min GPU/day),
-so the cold-start cost is negligible and on-demand is the default here. The worker loads
-the model on the first queued task (status shows `stage=loading_model`), processes the
-FIFO queue, and after `TTS_SERVE_IDLE_UNLOAD` seconds with an empty queue it drops the
-model and calls `empty_cache()` — freeing the ~17 GB of weights. A small CUDA context
-(~hundreds of MB) lingers until the process exits; if you need the GPU **100%** free,
-recycle the worker process on idle instead (a follow-up). Verified on this host: idle
-GPU **1 MiB** → task loads the model → idle-unload returns it to **~518 MiB**.
+**Recycle (the unit default)** runs a tiny supervisor that touches no CUDA (0 GPU) and
+spawns a child (`multiprocessing` *spawn*) that loads the model on the first task,
+drains the FIFO queue, and **exits** after `IDLE_UNLOAD` idle seconds — process death
+destroys the CUDA context, so **100%** of VRAM returns to the driver. The next task
+respawns a child (cold start ≈ model load). If a child crashes mid-task, the supervisor
+respawns and `reclaim_stale()` re-queues the orphaned task.
+
+Verified on this host: idle GPU **1 MiB** → task spawns child, loads model → ~17 GB
+during work → child idle-exits → back to **1 MiB**. Crash test: `kill -9` the model
+child mid-transcription → respawn → re-queue → task still completes.
 
 ## Logging (for debugging)
 Both processes use `service/logconf.py`: component-tagged, leveled lines to **stdout**
@@ -112,8 +115,12 @@ a full traceback (`exc_info`). uvicorn's access/error logs are reformatted throu
 same handler so everything is one consistent stream.
 
 ## State on disk — where things live
-- **SQLite queue/state**: `<DATA>/tasks.db` (+ `-wal`, `-shm` from WAL mode). Default
-  `<repo>/data/tasks.db`; override the whole data root with `TTS_SERVE_DATA`.
+- **SQLite queue/state**: `<DATA>/tasks.db` (+ `-wal`, `-shm` from WAL mode). `TTS_SERVE_DATA`
+  is the data root: the **systemd units set it to the systemd `StateDirectory`**,
+  `~/.local/state/tts_serve` (via `%S/tts_serve`) — deliberately **outside the repo** so a
+  `git clean`/re-clone can't touch your queue. Keep it on a **local** disk (WAL locking is
+  unsafe on NFS). Ad-hoc/CLI runs without the env var fall back to `<repo>/data`. Migrating
+  an existing repo `data/`: `cp -a ./data/. ~/.local/state/tts_serve/` before first start.
 - **Per-task files**: `<DATA>/tasks/<id>/` — `input.*` (upload/download) + `results/`
   (`transcript.txt`, `subtitle.srt`, `segments.json`, `meta.json`).
 - **Logs**: `<DATA>/logs/{api,worker}.log`. **Registered clients**: a `clients` table in

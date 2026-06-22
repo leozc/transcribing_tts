@@ -43,7 +43,23 @@ def _conn():
         c.close()
 
 
+def _canonical_state_db() -> Path:
+    """Where the systemd service keeps state (StateDirectory = %S/tts_serve)."""
+    base = os.environ.get("XDG_STATE_HOME") or (Path.home() / ".local" / "state")
+    return Path(base) / "tts_serve" / "tasks.db"
+
+
 def init() -> None:
+    # Split-brain guard: if no explicit data root is set but a canonical state DB
+    # exists (the systemd deployment), refuse to silently fall back to <repo>/data —
+    # that stale duplicate would diverge from the real queue. Be explicit instead.
+    if "TTS_SERVE_DATA" not in os.environ:
+        canon = _canonical_state_db()
+        if canon.exists() and canon.resolve() != DB.resolve():
+            raise RuntimeError(
+                f"TTS_SERVE_DATA is unset but a state DB exists at {canon}. Refusing to "
+                f"use the fallback {DB} (would split-brain the queue). Set TTS_SERVE_DATA "
+                f"explicitly (e.g. export TTS_SERVE_DATA={canon.parent}).")
     with _conn() as c:
         c.execute(
             """CREATE TABLE IF NOT EXISTS tasks(

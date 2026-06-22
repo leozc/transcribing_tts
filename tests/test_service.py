@@ -82,6 +82,16 @@ def test_client_registration(svc):
     assert row["key_hash"] != key and len(row["key_hash"]) == 64
 
 
+def test_recycle_should_spawn():
+    from tts_serve.service.worker import _should_spawn
+    # spawn only when there is pending work AND no child is running
+    assert _should_spawn({"queued": 2}, child_alive=False) is True
+    assert _should_spawn({"running": 1}, child_alive=False) is True   # crash-orphan -> respawn requeues
+    assert _should_spawn({"queued": 3}, child_alive=True) is False    # one child at a time
+    assert _should_spawn({"done": 5}, child_alive=False) is False     # nothing pending
+    assert _should_spawn({}, child_alive=False) is False
+
+
 def test_reclaim_stale(svc):
     store, _, _ = svc
     a = store.create("s3://b/a.wav", "s3", {})
@@ -115,6 +125,45 @@ def test_migration_adds_columns(tmp_path, monkeypatch):
     row = store_mod.get("old1")
     assert row["client_id"] is None and row["token"] is None  # legacy -> fail-closed
     assert store_mod.create_client("x")  # clients table created by the migration
+
+
+def test_split_brain_guard(tmp_path, monkeypatch):
+    import importlib
+    # a canonical state DB exists, but TTS_SERVE_DATA is unset -> init() must refuse
+    # to silently use the <repo>/data fallback (would split-brain the queue).
+    state = tmp_path / "state" / "tts_serve"
+    state.mkdir(parents=True)
+    (state / "tasks.db").write_text("x")
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.delenv("TTS_SERVE_DATA", raising=False)
+    from tts_serve.service import store as store_mod
+    importlib.reload(store_mod)
+    with pytest.raises(RuntimeError, match="split-brain"):
+        store_mod.init()
+    # explicit TTS_SERVE_DATA -> no guard
+    monkeypatch.setenv("TTS_SERVE_DATA", str(tmp_path / "explicit"))
+    importlib.reload(store_mod)
+    store_mod.init()  # must not raise
+
+
+def test_setup_logging_idempotent_and_none_guard(tmp_path, monkeypatch):
+    import importlib
+    import logging as _logging
+    monkeypatch.setenv("TTS_SERVE_DATA", str(tmp_path))
+    monkeypatch.setenv("TTS_SERVE_LOG_DIR", "none")  # children/file-less path
+    root = _logging.getLogger()
+    saved = root.handlers[:]
+    try:
+        from tts_serve.service import logconf
+        importlib.reload(logconf)          # reset _CONFIGURED
+        logconf.setup_logging("worker")
+        n1 = len(root.handlers)
+        logconf.setup_logging("worker")    # second call is a no-op (no duplicate handlers)
+        assert len(root.handlers) == n1
+        assert not any(type(h).__name__ == "RotatingFileHandler" for h in root.handlers)
+    finally:
+        root.handlers[:] = saved
+        importlib.reload(logconf)          # leave module fresh for other tests
 
 
 # ---------- API: register + enqueue ----------
