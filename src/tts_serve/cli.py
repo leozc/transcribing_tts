@@ -76,15 +76,26 @@ def cmd_transcribe(args) -> int:
     res = asr.transcribe(str(wav), max_new_tokens=args.max_new_tokens, hotwords=hotwords)
 
     segments = normalize_segments(res.segments)
+    suggested_names = None
     if args.reid:
         # Post-process: re-cluster segment voiceprints to globally consistent
         # speaker ids (fixes over-count + cross-chunk drift). Best with --speakers.
         from tts_serve.diarize import SpeakerReID
         _eprint(f"[reid] voiceprint speaker re-id (n_speakers={args.speakers or 'auto'})")
         segments = SpeakerReID().relabel(str(wav), segments, n_speakers=args.speakers)
+    if args.names:
+        from tts_serve.name_suggest import suggest_names
+        _eprint("[names] LLM speaker-name suggestion (DeepSeek)")
+        suggested_names = suggest_names(segments) or None
+        if suggested_names:
+            for spk, info in suggested_names.items():
+                _eprint(f"  {spk} -> {info['name']} (conf {info['confidence']:.2f})")
+        else:
+            _eprint("  (no self-introductions found, or DEEPSEEK_API_KEY not set)")
     doc = build_document(
         segments, source=rs.label, model=args.model,
         meeting_name=args.name or rs.name,
+        speaker_names=suggested_names,
         gen_seconds=round(res.gen_seconds, 1),
         peak_vram_gb=round(res.peak_vram_gb, 2),
     )
@@ -126,6 +137,8 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--speakers", type=int, help="expected speaker count hint")
     t.add_argument("--reid", action="store_true",
                    help="voiceprint speaker re-id post-process (use with --speakers)")
+    t.add_argument("--names", action="store_true",
+                   help="suggest speaker names from self-intros via LLM (needs DEEPSEEK_API_KEY)")
     t.add_argument("--clip", help="clip START-END seconds, e.g. 0-600 or 30-")
     t.add_argument("--model", default="microsoft/VibeVoice-ASR")
     t.add_argument("--max-new-tokens", type=int, default=16384, dest="max_new_tokens")

@@ -69,8 +69,9 @@ tts-serve transcribe call.wav --stdout json | jq '.segments[0]'
 
 Common flags: `--out DIR`, `--stdout json|txt|srt`, `--hotwords "A,B"`,
 `--speakers N`, `--reid` (voiceprint speaker re-id; fixes over-count & long-audio
-cross-chunk drift — use with `--speakers`), `--clip START-END` (seconds), `--name`,
-`--model`, `--max-new-tokens`.
+cross-chunk drift — use with `--speakers`), `--names` (suggest real speaker names
+from self-intros via LLM; needs `DEEPSEEK_API_KEY`), `--clip START-END` (seconds),
+`--name`, `--model`, `--max-new-tokens`.
 
 ### Output
 Canonical machine format is `segments.json`:

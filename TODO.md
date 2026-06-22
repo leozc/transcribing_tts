@@ -13,15 +13,19 @@ over-splits same-recording speakers) — re-id currently needs the count via
 clustering + eigengap** (the standard diarization estimator), and proper **DER**
 measurement (needs reference speaker turns we don't have yet).
 
-## Speaker name suggestion from self-intros (post-processing)
-After transcription, speakers frequently **self-introduce** ("I'm Skyler, I've been
-an investor at Pelion for four years..."). A post-processing pass can scan each
-speaker's segments for self-introduction patterns (name + role/affiliation) and
-**suggest a real name** for each `Speaker N`. Combine with the voiceprint DB:
-once a name is inferred for a voiceprint, it auto-applies to future meetings.
-Implementation: regex/NER heuristics first ("I'm <Name>", "my name is <Name>",
-"this is <Name>"), then an LLM pass over each speaker's longest early segments for
-higher recall. Surface as *suggestions* the user confirms (don't auto-rename).
+## Speaker name suggestion from self-intros — DONE (LLM-only)
+`src/tts_serve/name_suggest.py`: sends each speaker's early segments to an LLM
+(DeepSeek) and asks for the speaker's OWN stated name. Enabled via
+`tts-serve transcribe --names` (needs `DEEPSEEK_API_KEY`). Validated: Crescent Key →
+Leo / Skyler / Daniel (conf 1.0); All-In → none (correctly rejects the third-person
+"this is Elizabeth Warren"); Eric Schmidt → Kevin.
+
+**No regex.** Pattern matching had too many false positives ("this is Elizabeth
+Warren", "I'm good"); the LLM reliably distinguishes a real self-intro from a
+third-person mention. Suggestions only (caller confirms; no silent rename).
+
+**Remaining:** persist confirmed name↔voiceprint into the CAM++/ECAPA DB so a named
+voice auto-labels in future meetings (ties into the re-id work).
 
 ## Other follow-ups
 - **Diarization over-count (+1)** on some single-pass multi-speaker clips (v4): consider
