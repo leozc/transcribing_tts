@@ -2,14 +2,23 @@
 clients get real types (not bare dicts)."""
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 _OPT_FIELDS = ("hotwords", "speakers", "reid", "names", "clip", "name")
 
 
 class CreateTaskRequest(BaseModel):
     source: str                       # file path / YouTube / Drive / S3 / http URL
+    client_id: str = Field(min_length=1)   # caller identity; required, and used to pull
     hotwords: str | None = None
+
+    @field_validator("client_id", "source")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
     speakers: int | None = None
     reid: bool = False
     names: bool = False
@@ -35,6 +44,7 @@ class TaskStatus(BaseModel):
     task_id: str
     status: str
     stage: str | None = None
+    client_id: str | None = None
     source_type: str | None = None
     error: str | None = None
     created_at: float | None = None
@@ -46,6 +56,7 @@ class QueuedItem(BaseModel):
     id: str
     status: str
     stage: str | None = None
+    client_id: str | None = None
     source_type: str | None = None
     created_at: float | None = None
     updated_at: float | None = None

@@ -1,24 +1,24 @@
 {
-  "description": "E2E concurrency test: 3 clients submit to the single-GPU service; server processes one at a time (FIFO); client3 polls and pulls its artifacts.",
+  "description": "E2E concurrency test: 3 clients submit to the single-GPU service; server processes one at a time (FIFO); client3 polls and pulls its artifacts. Each client passes a client_id (required) and uses the same id (X-Client-Id header) to poll/pull.",
   "base_url": "http://localhost:8091",
   "clients": {
     "client1_youtube": [
       {"method": "POST", "path": "/v1/tasks", "content_type": "application/json",
-       "body": {"source": "https://youtu.be/3Amlu4y94Ho", "clip": "0-20", "name": "c1_youtube"}}
+       "body": {"source": "https://youtu.be/3Amlu4y94Ho", "client_id": "client1", "clip": "0-20", "name": "c1_youtube"}}
     ],
     "client2_bilibili": [
       {"method": "POST", "path": "/v1/tasks", "content_type": "application/json",
-       "body": {"source": "https://b23.tv/fZQNYqJ", "name": "c2_bilibili"},
-       "note": "Bilibili. On this host the datacenter IP is 412-blocked by Bilibili risk-control, so this task is expected to end 'failed' with an HTTP 412 error. Provider is correct; works from a residential IP or with --cookies/SESSDATA."}
+       "body": {"source": "https://b23.tv/fZQNYqJ", "client_id": "client2", "name": "c2_bilibili"},
+       "note": "Bilibili. With a logged-in session (scripts/bili_login.py -> data/bili_cookies.txt, auto-used by the worker) this succeeds; from a 412-blocked datacenter IP without cookies it ends 'failed'."}
     ],
     "client3_file_and_multiple": [
       {"method": "POST", "path": "/v1/tasks/upload", "content_type": "multipart/form-data",
-       "file": "benchmark/sample/allin_60s_16k.wav", "form": {"speakers": "2", "name": "c3_file"}},
+       "file": "benchmark/sample/allin_60s_16k.wav", "form": {"client_id": "client3", "speakers": "2", "name": "c3_file"}},
       {"method": "POST", "path": "/v1/tasks", "content_type": "application/json",
-       "body": {"source": "https://youtu.be/3Amlu4y94Ho", "clip": "40-55", "name": "c3_req2"}},
+       "body": {"source": "https://youtu.be/3Amlu4y94Ho", "client_id": "client3", "clip": "40-55", "name": "c3_req2"}},
       {"method": "POST", "path": "/v1/tasks", "content_type": "application/json",
-       "body": {"source": "https://youtu.be/3Amlu4y94Ho", "clip": "60-75", "name": "c3_req3"}}
+       "body": {"source": "https://youtu.be/3Amlu4y94Ho", "client_id": "client3", "clip": "60-75", "name": "c3_req3"}}
     ]
   },
-  "then": "client3 GET /v1/tasks/{id} until done, then GET /v1/tasks/{id}/artifact (zip)."
+  "then": "client3 polls GET /v1/tasks/{id} with header 'X-Client-Id: client3' until done, then GET /v1/tasks/{id}/artifact (same header) -> zip. /v1/queue is the admin view (all tasks)."
 }

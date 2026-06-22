@@ -68,7 +68,15 @@ def main() -> None:
     asr = VibeVoiceASR()
     print(f"[worker] model ready in {asr.load_seconds:.1f}s; polling queue", flush=True)
     poll = float(os.environ.get("TTS_SERVE_POLL", "1.0"))
+    retention = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
+    last_maint = 0.0
     while True:
+        # lifecycle maintenance roughly hourly (purge old terminal tasks + WAL checkpoint)
+        if time.time() - last_maint > 3600:
+            n = store.purge_old(retention)
+            if n:
+                print(f"[worker] purged {n} old task(s)", flush=True)
+            last_maint = time.time()
         task = store.claim_next_queued()
         if not task:
             time.sleep(poll)

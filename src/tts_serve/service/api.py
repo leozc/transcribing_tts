@@ -38,6 +38,11 @@ app = FastAPI(title="tts_serve", version="0.1.0",
 @app.on_event("startup")
 def _startup() -> None:
     store.init()
+    # lifecycle maintenance: purge terminal tasks older than retention (0 disables)
+    days = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
+    n = store.purge_old(days)
+    if n:
+        print(f"[api] purged {n} task(s) older than {days}d", flush=True)
 
 
 async def _auth(request: Request) -> None:
@@ -46,11 +51,26 @@ async def _auth(request: Request) -> None:
         raise HTTPException(401, "missing/invalid bearer token")
 
 
-def _save_upload(filename: str, data: bytes, opts: dict) -> str:
+def _caller(request: Request) -> str | None:
+    """Caller identity for pull/admin ops: 'X-Client-Id' header or ?client_id=."""
+    return request.headers.get("x-client-id") or request.query_params.get("client_id")
+
+
+def _owned(tid: str, caller: str | None) -> dict:
+    """Fetch a task and enforce client_id ownership. 404 unknown, 403 wrong owner."""
+    t = store.get(tid)
+    if not t:
+        raise HTTPException(404, "unknown task id")
+    if t.get("client_id") and caller != t["client_id"]:
+        raise HTTPException(403, "client_id does not own this task (send X-Client-Id)")
+    return t
+
+
+def _save_upload(filename: str, data: bytes, opts: dict, client_id: str) -> str:
     ext = Path(filename or "").suffix.lower()
     if ext not in _AUDIO_EXTS:
         ext = ".bin"
-    tid = store.create("", "file", opts)
+    tid = store.create("", "file", opts, client_id=client_id)
     dst = store.task_dir(tid) / f"input{ext}"
     dst.write_bytes(data)
     store.update(tid, source=str(dst))
@@ -65,13 +85,14 @@ def healthz() -> Health:
 @app.post("/v1/tasks", response_model=TaskRef)
 def create_task(req: CreateTaskRequest, _=Depends(_auth)) -> TaskRef:
     from tts_serve.sources import classify
-    tid = store.create(req.source, classify(req.source), req.options())
+    tid = store.create(req.source, classify(req.source), req.options(), client_id=req.client_id)
     return TaskRef(task_id=tid, status="queued")
 
 
 @app.post("/v1/tasks/upload", response_model=TaskRef)
 async def upload_task(
     file: UploadFile = File(...),
+    client_id: str = Form(...),
     hotwords: str | None = Form(None),
     speakers: int | None = Form(None),
     reid: bool = Form(False),
@@ -80,26 +101,29 @@ async def upload_task(
     name: str | None = Form(None),
     _=Depends(_auth),
 ) -> TaskRef:
-    req = CreateTaskRequest(source="upload", hotwords=hotwords, speakers=speakers,
-                            reid=reid, names=names, clip=clip, name=name)
-    tid = _save_upload(file.filename, await file.read(), req.options())
+    client_id = (client_id or "").strip()
+    if not client_id:  # 422 here, else manual model construction would 500
+        raise HTTPException(422, "client_id must not be blank")
+    req = CreateTaskRequest(source="upload", client_id=client_id, hotwords=hotwords,
+                            speakers=speakers, reid=reid, names=names, clip=clip, name=name)
+    # use the VALIDATED/stripped client_id, not the raw form value
+    tid = _save_upload(file.filename, await file.read(), req.options(), req.client_id)
     return TaskRef(task_id=tid, status="queued")
 
 
 @app.get("/v1/tasks/{tid}", response_model=TaskStatus)
-def get_task(tid: str, _=Depends(_auth)) -> TaskStatus:
-    t = store.get(tid)
-    if not t:
-        raise HTTPException(404, "unknown task id")
+def get_task(tid: str, request: Request, _=Depends(_auth)) -> TaskStatus:
+    t = _owned(tid, _caller(request))
     return TaskStatus(task_id=t["id"], status=t["status"], stage=t["stage"],
-                      source_type=t["source_type"], error=t["error"],
+                      client_id=t["client_id"], source_type=t["source_type"], error=t["error"],
                       created_at=t["created_at"], updated_at=t["updated_at"],
                       options=t["options"])
 
 
 @app.get("/v1/tasks", response_model=TaskList)
-def list_tasks(_=Depends(_auth)) -> TaskList:
-    return TaskList(tasks=[QueuedItem(**r) for r in store.list_tasks()])
+def list_tasks(request: Request, _=Depends(_auth)) -> TaskList:
+    # a client lists its own tasks via ?client_id= / X-Client-Id; admin (no id) sees all
+    return TaskList(tasks=[QueuedItem(**r) for r in store.list_tasks(client_id=_caller(request))])
 
 
 @app.get("/v1/queue", response_model=QueueStatus)
@@ -114,21 +138,18 @@ def queue(_=Depends(_auth)) -> QueueStatus:
 
 
 @app.delete("/v1/tasks/{tid}", response_model=DeleteResult)
-def delete_task(tid: str, _=Depends(_auth)) -> DeleteResult:
-    t = store.get(tid)
-    if not t:
-        raise HTTPException(404, "unknown task id")
+def delete_task(tid: str, request: Request, _=Depends(_auth)) -> DeleteResult:
+    t = _owned(tid, _caller(request))
     if t["status"] == "running":
         raise HTTPException(409, "cannot remove a running task")
-    store.delete(tid)
+    if not store.delete(tid):  # raced to 'running' between the check and here
+        raise HTTPException(409, "cannot remove a running task")
     return DeleteResult(deleted=tid, was=t["status"])
 
 
 @app.post("/v1/tasks/{tid}/retry", response_model=TaskRef)
-def retry_task(tid: str, _=Depends(_auth)) -> TaskRef:
-    t = store.get(tid)
-    if not t:
-        raise HTTPException(404, "unknown task id")
+def retry_task(tid: str, request: Request, _=Depends(_auth)) -> TaskRef:
+    t = _owned(tid, _caller(request))
     if t["status"] not in ("failed", "cancelled"):
         raise HTTPException(409, f"can only retry failed/cancelled (status={t['status']})")
     store.update(tid, status="queued", stage=None, error=None)
@@ -137,10 +158,8 @@ def retry_task(tid: str, _=Depends(_auth)) -> TaskRef:
 
 @app.get("/v1/tasks/{tid}/artifact",
          responses={200: {"content": {"application/zip": {}}}, 409: {}, 404: {}})
-def get_artifact(tid: str, _=Depends(_auth)):
-    t = store.get(tid)
-    if not t:
-        raise HTTPException(404, "unknown task id")
+def get_artifact(tid: str, request: Request, _=Depends(_auth)):
+    t = _owned(tid, _caller(request))
     if t["status"] != "done":
         raise HTTPException(409, f"task not done (status={t['status']})")
     rdir = store.results_dir(tid)
@@ -165,11 +184,17 @@ def agent_info() -> dict:
                    "speaker-attributed, timestamped transcript. Async: queue a task, poll, "
                    "download a zip of artifacts.",
         "workflow": [
-            "1. POST /v1/tasks (JSON {source}) for a URL, or POST /v1/tasks/upload (multipart file) -> {task_id}",
-            "2. GET /v1/tasks/{task_id}; poll the 'status' field until 'done' (stop on 'failed'/'cancelled'); "
+            "1. POST /v1/tasks (JSON {source, client_id}) for a URL, or POST /v1/tasks/upload "
+            "(multipart file + client_id) -> {task_id}. client_id is REQUIRED and identifies you.",
+            "2. GET /v1/tasks/{task_id} with your client_id (header 'X-Client-Id: <id>' or "
+            "?client_id=<id>); poll 'status' until 'done' (stop on 'failed'/'cancelled'); "
             "'stage' shows progress while status=='running'",
-            "3. GET /v1/tasks/{task_id}/artifact -> zip (transcript.txt, subtitle.srt, segments.json, meta.json)",
+            "3. GET /v1/tasks/{task_id}/artifact (with the same client_id) -> zip "
+            "(transcript.txt, subtitle.srt, segments.json, meta.json)",
         ],
+        "identity": "client_id is required at enqueue and must match to poll/pull/delete/retry a "
+                    "task (send it as 'X-Client-Id' header or ?client_id= query). Tasks are owned by "
+                    "their client_id.",
         "concurrency": "One task runs at a time (single resident GPU worker, FIFO queue).",
         "status_values": ["queued", "running", "done", "failed", "cancelled"],
         "stage_values": ["downloading", "preprocessing", "transcribing", "postprocessing", "done"],
@@ -182,12 +207,12 @@ def agent_info() -> dict:
             "name": "meeting name (default derived from source)",
         },
         "endpoints": [
-            {"method": "POST", "path": "/v1/tasks", "body": "JSON CreateTaskRequest {source, ...options}",
-             "example": "curl -H 'content-type: application/json' -d '{\"source\":\"https://youtu.be/ID\",\"clip\":\"0-600\",\"names\":true}' <base>/v1/tasks"},
-            {"method": "POST", "path": "/v1/tasks/upload", "body": "multipart file=@audio + option form fields",
-             "example": "curl -F file=@meeting.wav -F speakers=2 -F reid=true <base>/v1/tasks/upload"},
-            {"method": "GET", "path": "/v1/tasks/{id}", "returns": "TaskStatus"},
-            {"method": "GET", "path": "/v1/tasks/{id}/artifact", "returns": "application/zip (200/409/404)"},
+            {"method": "POST", "path": "/v1/tasks", "body": "JSON CreateTaskRequest {source, client_id, ...options}",
+             "example": "curl -H 'content-type: application/json' -d '{\"source\":\"https://youtu.be/ID\",\"client_id\":\"alice\",\"clip\":\"0-600\",\"names\":true}' <base>/v1/tasks"},
+            {"method": "POST", "path": "/v1/tasks/upload", "body": "multipart file=@audio + client_id + option form fields",
+             "example": "curl -F file=@meeting.wav -F client_id=alice -F speakers=2 <base>/v1/tasks/upload"},
+            {"method": "GET", "path": "/v1/tasks/{id}", "returns": "TaskStatus (needs matching client_id)"},
+            {"method": "GET", "path": "/v1/tasks/{id}/artifact", "returns": "application/zip (200/409/404; needs matching client_id)"},
             {"method": "GET", "path": "/v1/tasks", "returns": "TaskList"},
             {"method": "GET", "path": "/v1/queue", "returns": "QueueStatus {running, queued[], counts}"},
             {"method": "DELETE", "path": "/v1/tasks/{id}", "returns": "remove queued/done/failed (409 if running)"},
