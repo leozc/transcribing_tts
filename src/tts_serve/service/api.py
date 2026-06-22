@@ -184,12 +184,16 @@ def agent_info() -> dict:
                    "download a zip of artifacts.",
         "workflow": [
             "1. POST /v1/tasks with a file upload OR a source URL -> {task_id}",
-            "2. GET /v1/tasks/{task_id} and poll until status == 'done' (or 'failed')",
+            "2. GET /v1/tasks/{task_id} and poll the 'status' field until it is 'done' "
+            "(stop also on 'failed' / 'cancelled'); the 'stage' field shows fine-grained "
+            "progress while status == 'running'",
             "3. GET /v1/tasks/{task_id}/artifact -> zip (transcript.txt, subtitle.srt, segments.json, meta.json)",
         ],
         "concurrency": "One task runs at a time (single resident GPU worker, FIFO queue).",
-        "status_lifecycle": ["queued", "downloading", "preprocessing", "transcribing",
-                              "postprocessing", "done", "failed", "cancelled"],
+        "status_values": ["queued", "running", "done", "failed", "cancelled"],
+        "stage_values": ["downloading", "preprocessing", "transcribing", "postprocessing", "done"],
+        "polling": "Poll the 'status' field (terminal: done/failed/cancelled). 'stage' is "
+                   "informational progress within 'running'.",
         "task_options": {
             "hotwords": "comma-separated names/terms to bias ASR",
             "speakers": "int, expected speaker count (improves diarization / re-id)",
