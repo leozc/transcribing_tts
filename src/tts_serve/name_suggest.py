@@ -18,8 +18,7 @@ import json
 import os
 from collections import defaultdict
 
-_EARLY_S = 240.0   # intros usually happen early
-_FIRST_N = 6       # ...or in a speaker's first few segments
+_INTRO_WORDS = 60   # a self-intro lands in a speaker's first words; feed only those
 _MODEL = "deepseek-chat"
 
 _PROMPT = (
@@ -35,7 +34,10 @@ _PROMPT = (
 )
 
 
-def _speaker_early_text(segments: list[dict]) -> dict[str, str]:
+def _speaker_intro_text(segments: list[dict], max_words: int = _INTRO_WORDS) -> dict[str, str]:
+    """First ``max_words`` words each speaker says (chronological). The intro is
+    at the start of a speaker's own speech, so this is all the LLM needs — and it
+    works for late-joiners (whose intro isn't near the meeting start)."""
     by_spk: dict[str, list[dict]] = defaultdict(list)
     for s in segments:
         if s.get("speaker") in (None, "?"):
@@ -43,9 +45,9 @@ def _speaker_early_text(segments: list[dict]) -> dict[str, str]:
         by_spk[s["speaker"]].append(s)
     out = {}
     for spk, segs in by_spk.items():
-        early = [s for s in segs if s["start"] < _EARLY_S] or segs[:_FIRST_N]
-        early = (early + segs[:_FIRST_N])[:8]
-        out[spk] = " ".join(dict.fromkeys(s["text"] for s in early))
+        segs = sorted(segs, key=lambda s: s["start"])
+        words = " ".join(s["text"] for s in segs).split()
+        out[spk] = " ".join(words[:max_words])
     return out
 
 
@@ -72,11 +74,11 @@ def suggest_names(segments: list[dict], api_key: str | None = None,
     if not api_key:
         return {}
     out = {}
-    for spk, text in _speaker_early_text(segments).items():
+    for spk, text in _speaker_intro_text(segments).items():
         if not text.strip():
             continue
         try:
-            data = json.loads(_deepseek(_PROMPT + text[:1500], api_key, model))
+            data = json.loads(_deepseek(_PROMPT + text, api_key, model))
         except Exception:  # noqa: BLE001
             continue
         if data.get("name"):
