@@ -67,3 +67,37 @@ meetings with correct speaker diarization and full coverage.
 ## Settings
 - `max_new_tokens=16384` (enough for 20-min clips; raise toward 32k for 60-min).
 - Greedy decoding (`do_sample=False`). Resident, single-GPU, serial.
+
+---
+
+# Test-set evaluation (bf16, accuracy-first)
+
+Full run over `benchmark/testset/manifest.json` via the transformers bf16 path
+(`benchmark/run_testset_bf16.py`), model loaded once. ≤27-min clips single-pass;
+v7 (41 min) chunked at ~14-min segments.
+
+| id | lang | segs | model spk | true spk | speed |
+|----|------|-----:|----------:|---------:|------:|
+| v1_chinese | zh-en mix | 95 | 2 | 2 ✅ | 8.1× |
+| v2_english | en | 88 | 2 | 2 ✅ | 8.2× |
+| v3_allin | en | 103 | 4 | 4 ✅ | 7.2× |
+| v4 (4 people) | en | 71 | 5 | 4 (+1) | 7.8× |
+| v5_2people | en | 54 | 2 | 2 ✅ | 9.3× |
+| v6_chinese_pure | zh | 37 | 1 | 1 ✅ | 8.8× |
+| v7_eric_schmidt | en | 166 | 4 | 2 (chunk artifact) | 7.7× |
+
+- **Speaker count** exact on **5/7**. v4 over-counts by 1; v7's "+2" is a chunking
+  artifact (chunk-local ids don't align — see `TODO.md`, voiceprint merge).
+- **Throughput** 7–9× realtime at full bf16 precision.
+
+## ⚠️ How accuracy was (and was NOT) measured
+This evaluation checks **coverage** (full 0→duration), **speaker count** vs
+ground truth, and **subjective coherence** spot-checks (fluent output, correct
+named entities, recognizable content matching the source). It does **NOT** yet
+measure word-level accuracy: there are no reference transcripts, so **no WER/CER
+and no DER/cpWER** are computed. "Accurate" here means "reads correctly on
+inspection," not a measured error rate.
+
+**To truly verify:** pull each source's reference transcript (e.g. YouTube
+captions) and compute WER/CER; use reference speaker turns for DER. That is the
+right next step to put a number on accuracy. (TODO)
