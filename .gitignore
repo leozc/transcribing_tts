@@ -31,3 +31,8 @@ benchmark/*.pid
 
 # Captions (downloaded reference)
 benchmark/captions/
+
+# PyInstaller binary build outputs
+dist/
+build/
+*.spec

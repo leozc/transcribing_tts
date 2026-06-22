@@ -40,6 +40,27 @@ e.g. `~/.config/systemd/user/tts-worker.service` and `tts-api.service` with
 `Restart=on-failure`. Env: `TTS_SERVE_API_KEY` (auth), `DEEPSEEK_API_KEY` (names),
 `TTS_SERVE_DATA` (data dir), AWS/`GDRIVE_CREDENTIALS` for cloud sources.
 
+> The venv is **uv-managed** (`uv venv` + `uv pip install`; no pip inside it). Use
+> `VIRTUAL_ENV=.venv uv pip install ...` to add packages. Package build backend is
+> setuptools (`pyproject.toml`); there is no `uv.lock` (uv is the installer, not a
+> locked project manager).
+
+## Binary distribution (standalone API, no venv)
+The **API** has no ML deps (FastAPI + uvicorn + SQLite + Pydantic), so it ships as a
+single self-contained executable — handy for deploying the front end without a Python
+environment:
+```bash
+VIRTUAL_ENV=.venv uv pip install pyinstaller   # one-time
+bash scripts/build_api_binary.sh               # -> dist/tts-serve-api  (~39 MB)
+TTS_SERVE_PORT=8088 TTS_SERVE_DATA=/srv/tts ./dist/tts-serve-api   # runs with NO venv
+```
+The build follows the API's real import graph and **excludes** torch/transformers/
+yt-dlp/etc. (using `--collect-submodules tts_serve` instead pulls in `asr.py`→torch and
+bloats the binary to ~3 GB). The **GPU worker is intentionally not binarized** — it needs
+torch/CUDA and downloads the ~17 GB model at runtime — so run it from the installed env
+(`tts-serve-worker`) on the same host/`data/`. Verified: the binary runs under `env -i`
+(no PATH/venv) and drives the full register → upload → poll → artifact flow.
+
 ## Reliability
 - WAL SQLite handles concurrent access; `BEGIN IMMEDIATE` makes the claim atomic.
 - **Crash recovery**: worker calls `reclaim_stale()` on startup → any task left `running`
