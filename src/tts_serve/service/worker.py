@@ -21,12 +21,22 @@ from tts_serve.service import store
 from tts_serve.sources import SourceOpts
 
 
+def _default_cookies() -> str | None:
+    """Use YT_COOKIES if set, else data/bili_cookies.txt (from scripts/bili_login.py)
+    so Bilibili works out of the box once logged in."""
+    env = os.environ.get("YT_COOKIES")
+    if env:
+        return env
+    default = store.DATA / "bili_cookies.txt"
+    return str(default) if default.exists() else None
+
+
 def _opts_from_env() -> SourceOpts:
     return SourceOpts(
         aws_profile=os.environ.get("AWS_PROFILE"),
         aws_region=os.environ.get("AWS_REGION"),
         gdrive_credentials=os.environ.get("GDRIVE_CREDENTIALS"),
-        cookies=os.environ.get("YT_COOKIES"),
+        cookies=_default_cookies(),
     )
 
 

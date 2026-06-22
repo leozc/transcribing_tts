@@ -27,6 +27,7 @@ gdrive = ["gdown", "google-api-python-client", "google-auth"]
 diarize = ["speechbrain", "scikit-learn", "torchaudio"]   # voiceprint speaker re-id
 eval = ["jiwer", "datasets", "soundfile"]                  # WER/CER accuracy harness
 service = ["fastapi", "uvicorn", "python-multipart"]        # HTTP queue/poll/artifact API
+bilibili = ["curl_cffi", "qrcode[pil]"]                     # TLS-impersonate + QR login (scripts/bili_login.py)
 
 [tool.setuptools.packages.find]
 where = ["src"]

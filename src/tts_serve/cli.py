@@ -58,13 +58,13 @@ def cmd_transcribe(args) -> int:
     if args.stdout:
         print(render_format(doc, args.stdout))
         _eprint(f"[done] {doc['n_segments']} segments, speakers={doc['speakers']}, "
-                f"{res.gen_seconds:.0f}s")
+                f"{doc.get('gen_seconds', 0):.0f}s")
         return 0
 
     out_dir = Path(args.out) if args.out else Path("out") / f"{doc['meeting_name']}"
     paths = write_outputs(out_dir, doc)
     _eprint(f"[done] {doc['n_segments']} segments, speakers={doc['speakers']}, "
-            f"{res.gen_seconds:.0f}s -> {out_dir}")
+            f"{doc.get('gen_seconds', 0):.0f}s -> {out_dir}")
     for p in paths.values():
         _eprint(f"  {p}")
     return 0

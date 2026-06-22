@@ -68,6 +68,14 @@ tts-serve transcribe call.wav --stdout json | jq '.segments[0]'
 | S3 | `s3://bucket/key.m4a` | `boto3` |
 | Direct URL | `https://…/clip.m4a` | streamed download |
 
+**Bilibili login** (datacenter IPs get HTTP 412; a logged-in session fixes it):
+```bash
+uv pip install -e ".[bilibili]"
+python scripts/bili_login.py            # shows a QR -> scan with the Bilibili app
+# -> writes data/bili_cookies.txt (gitignored). CLI: --cookies data/bili_cookies.txt
+# The service worker auto-uses data/bili_cookies.txt (or $YT_COOKIES).
+```
+
 Common flags: `--out DIR`, `--stdout json|txt|srt`, `--hotwords "A,B"`,
 `--speakers N`, `--reid` (voiceprint speaker re-id; fixes over-count & long-audio
 cross-chunk drift — use with `--speakers`), `--names` (suggest real speaker names
