@@ -188,6 +188,76 @@ generated client via `openapi-generator-cli` / `openapi-python-client` / `openap
 - `GET /agent_info` — concise, agent-facing API guide; full spec at `/openapi.json` + `/docs`
 - `GET /healthz`
 
+### For agents / programmatic use
+
+**TL;DR** — async transcription: **register once → get a secret key → enqueue → poll
+until `done` → download the artifact zip.** A single FIFO GPU worker runs one task at
+a time. The service self-describes at `GET /agent_info` (prose) and `GET /openapi.json`
+(machine spec). *(This flow was validated by handing a fresh agent nothing but the base
+URL — it self-served the entire loop from `/agent_info` alone.)*
+
+> **Auth is intentionally NOT in the OpenAPI `securitySchemes`.** The headers appear as
+> *optional* params in the spec — that is misleading; **send them**. Read this section
+> for the contract, not `/openapi.json` alone. Two credentials, different scopes:
+> - **`X-Client-Key`** — your account identity. Required to **enqueue** and to **list
+>   your own jobs**; also grants access to any task you own.
+> - **`pull_token`** (sent as header `X-Task-Token` or `?token=`) — a single-task
+>   capability, returned **only** in the create response. Use it to share/poll one task
+>   without handing over your account key.
+> Header names are case-insensitive; the secret values are exact.
+
+```bash
+B=http://localhost:8088
+
+# 0. Register ONCE -> 201 {client_id, client_key}. client_key is shown only here and
+#    cannot be re-fetched — PERSIST IT NOW. Re-registering the same id returns 409.
+KEY=$(curl -s -H 'content-type: application/json' -d '{"client_id":"agent-42"}' \
+        $B/v1/clients | jq -r .client_key)
+
+# 1. Enqueue -> 200 (not 201) {task_id, status, pull_token}. The body client_id MUST
+#    equal the id that owns your key (else 403). Save the pull_token — only returned here.
+read TID TOKEN < <(curl -s -H 'content-type: application/json' -H "X-Client-Key: $KEY" \
+  -d '{"source":"https://youtu.be/ID","client_id":"agent-42","clip":"0-600"}' \
+  $B/v1/tasks | jq -r '.task_id + " " + .pull_token')
+
+# 2. Poll (X-Client-Key owner, OR X-Task-Token). status: queued->running->done|failed|cancelled
+curl -s -H "X-Client-Key: $KEY" $B/v1/tasks/$TID            # poll with backoff (jobs serialize)
+
+# 3. When status=='done', download the zip (transcript.txt, subtitle.srt, segments.json, meta.json)
+curl -s -H "X-Task-Token: $TOKEN" -OJ $B/v1/tasks/$TID/artifact
+
+# list ONLY your jobs (always send the key — don't rely on anonymous listing)
+curl -s -H "X-Client-Key: $KEY" $B/v1/tasks
+```
+
+**Options** (JSON fields or upload form fields): `hotwords` (comma list), `speakers`
+(int), `reid` (bool, pair with `speakers`), `names` (bool, LLM name guess from
+self-intros), `clip` (`"START-END"` seconds, e.g. `"0-600"`), `name` (label).
+
+**Status map** — branch on the code, don't treat non-2xx uniformly:
+
+| code | meaning |
+|------|---------|
+| `200` | success (incl. task **create/upload/retry**) |
+| `201` | client registered |
+| `401` | missing/garbage `X-Client-Key` |
+| `403` | valid key but not the task owner, **or** body `client_id` ≠ your key |
+| `404` | unknown task id |
+| `409` | `client_id` already taken / delete-while-running / artifact not ready |
+| `422` | request validation |
+
+**Gotchas worth stating up front** (each cost a real agent in testing):
+1. **Save `client_key` and `pull_token` the instant you see them** — both are
+   unrecoverable, and a burned `client_id` can't be re-registered (409).
+2. The spec marks auth headers optional — **ignore that and send them**; expect
+   `401`/`403` (undocumented in the spec) on omission/mismatch.
+3. Cross-client listing/`/v1/queue` are **open in unconfigured dev but locked in prod**
+   (when `TTS_SERVE_API_KEY` is set) — never build on seeing other clients' tasks; always
+   scope `GET /v1/tasks` with your key.
+4. **Track the `task_id`s you create** rather than rediscovering them via the list.
+5. No documented upload-size/format/retention limits — poll with backoff and download
+   artifacts promptly once `done` (they're purged after `TTS_SERVE_RETENTION_DAYS`).
+
 ## Tests
 
 ```bash
