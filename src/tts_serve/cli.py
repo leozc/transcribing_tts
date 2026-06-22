@@ -28,25 +28,10 @@ def _eprint(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
 
-def _clip_and_normalize(src: Path, dst: Path, clip: str | None) -> None:
-    """ffmpeg -> 16kHz mono wav, optionally clipping START-END (seconds)."""
-    cmd = ["ffmpeg", "-y"]
-    if clip:
-        start, _, end = clip.partition("-")
-        if start:
-            cmd += ["-ss", start]
-        if end:
-            cmd += ["-to", end]
-    cmd += ["-i", str(src), "-ar", "16000", "-ac", "1", str(dst)]
-    subprocess.run(cmd, check=True, capture_output=True)
-
-
 def cmd_transcribe(args) -> int:
-    from tts_serve.sources import SourceOpts, resolve
-    from tts_serve.asr import VibeVoiceASR
-    from tts_serve.outputs import (
-        build_document, normalize_segments, render_format, write_outputs,
-    )
+    from tts_serve import core
+    from tts_serve.sources import SourceOpts
+    from tts_serve.outputs import render_format, write_outputs
 
     workdir = Path(tempfile.mkdtemp(prefix="tts_serve_"))
     opts = SourceOpts(
@@ -58,47 +43,17 @@ def cmd_transcribe(args) -> int:
         gdrive_public=args.gdrive_public,
         cookies=args.cookies,
     )
-    rs = resolve(args.source, workdir, opts)
-
-    wav = workdir / "audio_16k.wav"
-    _eprint(f"[preprocess] -> 16kHz mono{' (clip ' + args.clip + ')' if args.clip else ''}")
-    _clip_and_normalize(rs.local_path, wav, args.clip)
-
-    hotwords = args.hotwords
-    if args.speakers:
-        # The model only takes free-text context_info; fold the speaker hint in.
-        hint = f"There are {args.speakers} speakers."
-        hotwords = f"{hotwords}. {hint}" if hotwords else hint
-
-    _eprint(f"[load] {args.model}")
-    asr = VibeVoiceASR(model=args.model)
-    _eprint(f"[transcribe] hotwords={hotwords or '(none)'}")
-    res = asr.transcribe(str(wav), max_new_tokens=args.max_new_tokens, hotwords=hotwords)
-
-    segments = normalize_segments(res.segments)
-    suggested_names = None
-    if args.reid:
-        # Post-process: re-cluster segment voiceprints to globally consistent
-        # speaker ids (fixes over-count + cross-chunk drift). Best with --speakers.
-        from tts_serve.diarize import SpeakerReID
-        _eprint(f"[reid] voiceprint speaker re-id (n_speakers={args.speakers or 'auto'})")
-        segments = SpeakerReID().relabel(str(wav), segments, n_speakers=args.speakers)
-    if args.names:
-        from tts_serve.name_suggest import suggest_names
-        _eprint("[names] LLM speaker-name suggestion (DeepSeek)")
-        suggested_names = suggest_names(segments) or None
-        if suggested_names:
-            for spk, info in suggested_names.items():
-                _eprint(f"  {spk} -> {info['name']} (conf {info['confidence']:.2f})")
-        else:
-            _eprint("  (no self-introductions found, or DEEPSEEK_API_KEY not set)")
-    doc = build_document(
-        segments, source=rs.label, model=args.model,
-        meeting_name=args.name or rs.name,
-        speaker_names=suggested_names,
-        gen_seconds=round(res.gen_seconds, 1),
-        peak_vram_gb=round(res.peak_vram_gb, 2),
+    doc = core.transcribe_source(
+        args.source, workdir=workdir, opts=opts,
+        hotwords=args.hotwords, speakers=args.speakers,
+        reid=args.reid, names=args.names, clip=args.clip,
+        model=args.model, max_new_tokens=args.max_new_tokens, name=args.name,
+        progress=lambda st: _eprint(f"[{st}]"),
     )
+    names = doc.get("speaker_names")
+    if names:
+        for spk, info in names.items():
+            _eprint(f"  {spk} -> {info['name']} (conf {info['confidence']:.2f})")
 
     if args.stdout:
         print(render_format(doc, args.stdout))

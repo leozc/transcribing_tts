@@ -108,6 +108,40 @@ Drop audio into `data/inbox/` with an optional sidecar `<name>.json`:
 ```
 Outputs land in `data/results/<meeting>__<hash>/` (sha256 dedup).
 
+## Service (HTTP API)
+
+Queue a transcription, poll it, download the artifact zip. Two processes share a
+SQLite queue (`data/tasks.db`) + `data/tasks/<id>/`: a light **API** and a single
+**GPU worker** that loads the model once and drains the queue serially.
+
+```bash
+uv pip install -e ".[service]"
+tts-serve-worker &                       # resident GPU worker (loads model once)
+TTS_SERVE_PORT=8088 tts-serve-api        # FastAPI on :8088
+```
+
+```bash
+# queue an upload  -> {"task_id": "...", "status": "queued"}
+curl -F file=@meeting.wav -F speakers=2 -F reid=true localhost:8088/v1/tasks
+
+# queue a URL (YouTube / Google Drive / S3 / http)
+curl -H 'content-type: application/json' \
+     -d '{"source":"https://youtu.be/<id>","clip":"0-600","names":true}' \
+     localhost:8088/v1/tasks
+
+# poll
+curl localhost:8088/v1/tasks/<task_id>          # {status, stage, ...}
+
+# download artifacts (zip of transcript.txt + subtitle.srt + segments.json + meta.json)
+curl -OJ localhost:8088/v1/tasks/<task_id>/artifact
+```
+
+Task options (form fields or JSON): `hotwords`, `speakers`, `reid`, `names`,
+`clip`, `name`. Status lifecycle: `queued → downloading → preprocessing →
+transcribing → postprocessing → done | failed`. Set `TTS_SERVE_API_KEY` to require
+`Authorization: Bearer <key>`. Endpoints: `POST /v1/tasks`, `GET /v1/tasks/{id}`,
+`GET /v1/tasks/{id}/artifact`, `GET /v1/tasks`, `GET /healthz`.
+
 ## Tests
 
 ```bash

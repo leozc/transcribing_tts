@@ -18,12 +18,15 @@ dependencies = [
 
 [project.scripts]
 tts-serve = "tts_serve.cli:main"
+tts-serve-api = "tts_serve.service.api:main"
+tts-serve-worker = "tts_serve.service.worker:main"
 
 [project.optional-dependencies]
 s3 = ["boto3"]
 gdrive = ["gdown", "google-api-python-client", "google-auth"]
 diarize = ["speechbrain", "scikit-learn", "torchaudio"]   # voiceprint speaker re-id
 eval = ["jiwer", "datasets", "soundfile"]                  # WER/CER accuracy harness
+service = ["fastapi", "uvicorn", "python-multipart"]        # HTTP queue/poll/artifact API
 
 [tool.setuptools.packages.find]
 where = ["src"]

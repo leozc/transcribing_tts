@@ -36,3 +36,9 @@ voice auto-labels in future meetings (ties into the re-id work).
   weights + KV pool + audio encoder on a single 24GB 4090; fp8 fits but costs
   accuracy. Revisit on a larger GPU, or if an accuracy-neutral quant becomes viable.
 - **Speaker naming**: enroll known voices → auto-label `Speaker N` with real names.
+
+## Service containerization (Docker compose) — follow-up
+The HTTP service runs as two processes today (`tts-serve-api` + `tts-serve-worker`,
+sharing SQLite + `data/`). A `docker-compose.yml` (api + GPU worker) needs a CUDA
+Dockerfile (torch cu121 + ./VibeVoice + model cache volume); deferred since the host
+runs the venv directly. Add when containerized deploy is needed.
