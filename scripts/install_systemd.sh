@@ -8,7 +8,7 @@
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 UDIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-PORT="${TTS_SERVE_PORT:-8088}"
+PORT="${TTS_SERVE_PORT:-39999}"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/tts_serve"   # = systemd %S/tts_serve
 BIN="$REPO/dist/tts-serve-api"
 

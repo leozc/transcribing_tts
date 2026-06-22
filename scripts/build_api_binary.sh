@@ -29,4 +29,4 @@ PYI=".venv/bin/pyinstaller"
 
 echo
 echo "built: dist/tts-serve-api  ($(du -h dist/tts-serve-api | cut -f1))"
-echo "run:   TTS_SERVE_PORT=8088 ./dist/tts-serve-api   (no venv needed)"
+echo "run:   TTS_SERVE_PORT=39999 ./dist/tts-serve-api   (no venv needed; 39999 is the default)"

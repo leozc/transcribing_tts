@@ -14,7 +14,7 @@
 import createClient from "openapi-fetch";
 import type { paths } from "./api";
 
-const client = createClient<paths>({ baseUrl: "http://localhost:8090" });
+const client = createClient<paths>({ baseUrl: "http://localhost:39999" });
 const CLIENT_ID = "alice";
 
 async function main() {
@@ -53,7 +53,7 @@ async function main() {
 
   if (status === "done") {
     // 3. GET /v1/tasks/{tid}/artifact -> zip bytes
-    const res = await fetch(`http://localhost:8090/v1/tasks/${ref.task_id}/artifact`,
+    const res = await fetch(`http://localhost:39999/v1/tasks/${ref.task_id}/artifact`,
                             { headers: { "X-Task-Token": token } });
     const buf = Buffer.from(await res.arrayBuffer());
     require("fs").writeFileSync(`/tmp/${ref.task_id}.zip`, buf);

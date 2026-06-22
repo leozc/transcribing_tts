@@ -126,7 +126,7 @@ SQLite queue (`data/tasks.db`) + `data/tasks/<id>/`: a light **API** and a singl
 ```bash
 uv pip install -e ".[service]"
 tts-serve-worker &                       # resident GPU worker (loads model once)
-TTS_SERVE_PORT=8088 tts-serve-api        # FastAPI on :8088
+TTS_SERVE_PORT=39999 tts-serve-api        # FastAPI on :39999
 ```
 
 **Register once** to get a secret **`client_key`**. Send it as `X-Client-Key` to
@@ -137,26 +137,26 @@ enqueue and to **list your own jobs** — it's your authenticated identity (the 
 
 ```bash
 # 0. register -> {"client_id","client_key"}  (client_key shown once — SAVE IT)
-curl -H 'content-type: application/json' -d '{"client_id":"alice"}' localhost:8088/v1/clients
+curl -H 'content-type: application/json' -d '{"client_id":"alice"}' localhost:39999/v1/clients
 
 # queue a file upload (multipart) -> {"task_id", "status", "pull_token"}
 curl -H 'X-Client-Key: <client_key>' \
-     -F file=@meeting.wav -F client_id=alice -F speakers=2 localhost:8088/v1/tasks/upload
+     -F file=@meeting.wav -F client_id=alice -F speakers=2 localhost:39999/v1/tasks/upload
 
 # queue a URL (YouTube / Bilibili / Google Drive / S3 / http) — JSON
 curl -H 'content-type: application/json' -H 'X-Client-Key: <client_key>' \
      -d '{"source":"https://youtu.be/<id>","client_id":"alice","clip":"0-600","names":true}' \
-     localhost:8088/v1/tasks
+     localhost:39999/v1/tasks
 # -> {"task_id":"...","status":"queued","pull_token":"<SAVE THIS>"}
 
 # list YOUR OWN jobs (only yours)
-curl -H 'X-Client-Key: <client_key>' localhost:8088/v1/tasks
+curl -H 'X-Client-Key: <client_key>' localhost:39999/v1/tasks
 
 # poll (with the pull_token, or your X-Client-Key)
-curl -H 'X-Task-Token: <pull_token>' localhost:8088/v1/tasks/<task_id>
+curl -H 'X-Task-Token: <pull_token>' localhost:39999/v1/tasks/<task_id>
 
 # download artifacts (zip of transcript.txt + subtitle.srt + segments.json + meta.json)
-curl -H 'X-Task-Token: <pull_token>' -OJ localhost:8088/v1/tasks/<task_id>/artifact
+curl -H 'X-Task-Token: <pull_token>' -OJ localhost:39999/v1/tasks/<task_id>/artifact
 ```
 
 Task options (form fields or JSON): `hotwords`, `speakers`, `reid`, `names`,
@@ -207,7 +207,7 @@ URL — it self-served the entire loop from `/agent_info` alone.)*
 > Header names are case-insensitive; the secret values are exact.
 
 ```bash
-B=http://localhost:8088
+B=http://localhost:39999
 
 # 0. Register ONCE -> 201 {client_id, client_key}. client_key is shown only here and
 #    cannot be re-fetched — PERSIST IT NOW. Re-registering the same id returns 409.

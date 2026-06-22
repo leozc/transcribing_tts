@@ -327,7 +327,7 @@ def main() -> None:
     setup_logging("api")  # configure before uvicorn so its loggers use our handlers
     level = os.environ.get("TTS_SERVE_LOG_LEVEL", "INFO").lower()
     uvicorn.run(app, host=os.environ.get("TTS_SERVE_HOST", "0.0.0.0"),
-                port=int(os.environ.get("TTS_SERVE_PORT", "8080")),
+                port=int(os.environ.get("TTS_SERVE_PORT", "39999")),
                 log_config=None, log_level=level)
 
 

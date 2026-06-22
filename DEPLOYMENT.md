@@ -6,7 +6,7 @@ barebone goal.
 
 ```
                  ┌───────────────────────────── host (RTX 4090) ─────────────────────────────┐
-   clients ──▶   │  tts-serve-api (FastAPI/uvicorn, :8088)        tts-serve-worker (1 process) │
+   clients ──▶   │  tts-serve-api (FastAPI/uvicorn, :39999)        tts-serve-worker (1 process) │
   (HTTP)         │    • POST /v1/tasks  → enqueue, return id        • owns the GPU              │
                  │    • GET  /v1/tasks/{id}  (poll)                 • loads VibeVoice once (~17GB)│
                  │    • GET  .../artifact    (zip)                  • claims 1 task at a time    │
@@ -34,7 +34,7 @@ barebone goal.
 ```bash
 uv pip install -e ".[service]"
 tts-serve-worker          # process 1 (GPU)
-TTS_SERVE_PORT=8088 tts-serve-api   # process 2
+TTS_SERVE_PORT=39999 tts-serve-api   # process 2
 ```
 Recommended supervision: **systemd user services** (linger already enabled on this host),
 e.g. `~/.config/systemd/user/tts-worker.service` and `tts-api.service` with
@@ -53,7 +53,7 @@ environment:
 ```bash
 VIRTUAL_ENV=.venv uv pip install pyinstaller   # one-time
 bash scripts/build_api_binary.sh               # -> dist/tts-serve-api  (~39 MB)
-TTS_SERVE_PORT=8088 TTS_SERVE_DATA=/srv/tts ./dist/tts-serve-api   # runs with NO venv
+TTS_SERVE_PORT=39999 TTS_SERVE_DATA=/srv/tts ./dist/tts-serve-api   # runs with NO venv
 ```
 The build follows the API's real import graph and **excludes** torch/transformers/
 yt-dlp/etc. (using `--collect-submodules tts_serve` instead pulls in `asr.py`→torch and
@@ -68,7 +68,7 @@ logout/reboot): `tts-api` runs the standalone **binary**, `tts-worker` runs the 
 GPU worker. Both `Restart=on-failure`.
 ```bash
 bash scripts/build_api_binary.sh          # produce dist/tts-serve-api
-bash scripts/install_systemd.sh           # install + daemon-reload (state in ~/.local/state/tts_serve, port 8088, recycle GPU)
+bash scripts/install_systemd.sh           # install + daemon-reload (state in ~/.local/state/tts_serve, port 39999, recycle GPU)
 systemctl --user enable --now tts-api tts-worker
 systemctl --user status tts-api tts-worker
 ```

@@ -27,7 +27,7 @@ from tts_serve_client.api.default import (                                  # no
     get_artifact_v1_tasks_tid_artifact_get as get_artifact,
 )
 
-BASE = "http://localhost:8090"
+BASE = "http://localhost:39999"
 CLIENT_ID = "alice"
 
 
