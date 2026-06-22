@@ -20,5 +20,5 @@
        "body": {"source": "https://youtu.be/3Amlu4y94Ho", "client_id": "client3", "clip": "60-75", "name": "c3_req3"}}
     ]
   },
-  "then": "client3 polls GET /v1/tasks/{id} with header 'X-Client-Id: client3' until done, then GET /v1/tasks/{id}/artifact (same header) -> zip. /v1/queue is the admin view (all tasks)."
+  "then": "Each POST returns a per-task pull_token. client3 polls GET /v1/tasks/{id} with header 'X-Task-Token: <pull_token>' until done, then GET /v1/tasks/{id}/artifact (same token) -> zip. client_id is attribution only (not a credential). /v1/queue is the admin view (bearer-gated when TTS_SERVE_API_KEY set)."
 }

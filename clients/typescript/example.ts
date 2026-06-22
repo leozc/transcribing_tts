@@ -15,19 +15,20 @@ const client = createClient<paths>({ baseUrl: "http://localhost:8090" });
 async function main() {
   const source = process.argv[2] ?? "https://youtu.be/3Amlu4y94Ho";
 
-  // POST /v1/tasks — body type is CreateTaskRequest, response is TaskRef
+  // POST /v1/tasks — body type is CreateTaskRequest, response is TaskRef (with pull_token)
   const { data: ref, error } = await client.POST("/v1/tasks", {
-    body: { source, clip: "0-20" },
+    body: { source, client_id: "alice", clip: "0-20" },
   });
   if (error || !ref) throw new Error(`create failed: ${JSON.stringify(error)}`);
+  const token = ref.pull_token!; // returned only here — required for later calls
   console.log("queued:", ref.task_id, ref.status);
 
-  // poll GET /v1/tasks/{tid} — response is TaskStatus
+  // poll GET /v1/tasks/{tid} — response is TaskStatus (send the pull_token)
   let status = "queued";
   while (!["done", "failed", "cancelled"].includes(status)) {
     await new Promise((r) => setTimeout(r, 5000));
     const { data } = await client.GET("/v1/tasks/{tid}", {
-      params: { path: { tid: ref.task_id } },
+      params: { path: { tid: ref.task_id }, header: { "x-task-token": token } },
     });
     status = data?.status ?? "failed";
     console.log(`  status=${status} stage=${data?.stage}`);
@@ -35,7 +36,8 @@ async function main() {
 
   if (status === "done") {
     // GET /v1/tasks/{tid}/artifact -> zip bytes
-    const res = await fetch(`http://localhost:8090/v1/tasks/${ref.task_id}/artifact`);
+    const res = await fetch(`http://localhost:8090/v1/tasks/${ref.task_id}/artifact`,
+                            { headers: { "X-Task-Token": token } });
     const buf = Buffer.from(await res.arrayBuffer());
     require("fs").writeFileSync(`/tmp/${ref.task_id}.zip`, buf);
     console.log(`artifact saved (${buf.length} bytes)`);

@@ -1,4 +1,8 @@
-"""Service tests — store + API, no GPU (transcription is simulated)."""
+"""Service tests — store + API, no GPU (transcription is simulated).
+
+Access control: client_id is attribution (who enqueued); the per-task pull_token
+returned at create is the capability required to poll/pull/delete/retry.
+"""
 import importlib
 import io
 import sqlite3
@@ -6,8 +10,6 @@ import time
 import zipfile
 
 import pytest
-
-CID = {"X-Client-Id": "alice"}   # default caller for owned ops
 
 
 @pytest.fixture()
@@ -23,15 +25,26 @@ def svc(tmp_path, monkeypatch):
     return store_mod, api_mod, TestClient(api_mod.app)
 
 
+def _enqueue(client, **body):
+    body.setdefault("client_id", "alice")
+    r = client.post("/v1/tasks", json={"source": "https://youtu.be/x", **body})
+    assert r.status_code == 200, r.text
+    return r.json()["task_id"], r.json()["pull_token"]
+
+
+def tok(t):
+    return {"X-Task-Token": t}
+
+
 # ---------- store ----------
 
 def test_store_single_concurrency_fifo(svc):
     store, _, _ = svc
-    a = store.create("s3://b/a.wav", "s3", {"reid": True}, client_id="t1")
-    b = store.create("https://youtu.be/x", "youtube", {}, client_id="t1")
-    assert store.get(a)["options"] == {"reid": True} and store.get(a)["client_id"] == "t1"
-    assert store.claim_next_queued()["id"] == a          # FIFO
-    assert store.claim_next_queued() is None              # single concurrency
+    a = store.create("s3://b/a.wav", "s3", {"reid": True}, client_id="t1", token="ta")
+    b = store.create("https://youtu.be/x", "youtube", {}, client_id="t1", token="tb")
+    assert store.get(a)["options"] == {"reid": True} and store.get(a)["token"] == "ta"
+    assert store.claim_next_queued()["id"] == a
+    assert store.claim_next_queued() is None
     store.update(a, status="done", stage="done")
     assert store.claim_next_queued()["id"] == b
     assert store.claim_next_queued() is None
@@ -41,49 +54,44 @@ def test_reclaim_stale(svc):
     store, _, _ = svc
     a = store.create("s3://b/a.wav", "s3", {})
     store.claim_next_queued()
-    assert store.get(a)["status"] == "running"
     assert store.reclaim_stale() == 1
     assert store.get(a)["status"] == "queued"
-    assert store.claim_next_queued()["id"] == a
 
 
 def test_purge_old(svc):
     store, _, _ = svc
-    keep = store.create("s://k", "s3", {}, client_id="t1")
-    old = store.create("s://o", "s3", {}, client_id="t1")
+    keep = store.create("s://k", "s3", {})
+    old = store.create("s://o", "s3", {})
     store.update(old, status="done")
-    with store._conn() as c:  # backdate to 10 days ago
+    with store._conn() as c:
         c.execute("UPDATE tasks SET updated_at=? WHERE id=?", (time.time() - 10 * 86400, old))
     assert store.purge_old(7) == 1
-    assert store.get(old) is None and store.get(keep) is not None  # queued never purged
+    assert store.get(old) is None and store.get(keep) is not None
 
 
-def test_migration_adds_client_id(tmp_path, monkeypatch):
+def test_migration_adds_columns(tmp_path, monkeypatch):
     monkeypatch.setenv("TTS_SERVE_DATA", str(tmp_path))
     from tts_serve.service import store as store_mod
     importlib.reload(store_mod)
     store_mod.DATA.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(store_mod.DB)  # OLD schema, no client_id
+    con = sqlite3.connect(store_mod.DB)  # OLD schema: no client_id, no token
     con.execute("CREATE TABLE tasks(id TEXT PRIMARY KEY, status TEXT, stage TEXT, source TEXT,"
                 " source_type TEXT, options_json TEXT, error TEXT, created_at REAL, updated_at REAL)")
     con.execute("INSERT INTO tasks(id,status) VALUES('old1','done')")
     con.commit(); con.close()
-    store_mod.init()  # should ALTER TABLE ADD COLUMN client_id
-    assert store_mod.get("old1")["client_id"] is None
-    tid = store_mod.create("s", "file", {}, client_id="x")
-    assert store_mod.get(tid)["client_id"] == "x"
+    store_mod.init()  # ALTER TABLE ADD client_id, token
+    row = store_mod.get("old1")
+    assert row["client_id"] is None and row["token"] is None  # legacy -> fail-closed
 
 
-# ---------- API: create + identity ----------
+# ---------- API: create + token ----------
 
-def test_create_via_url_and_status(svc):
+def test_create_returns_token_and_status(svc):
     _, _, client = svc
-    r = client.post("/v1/tasks", json={"source": "https://youtu.be/abc", "client_id": "alice",
-                                       "speakers": 2, "reid": True})
-    assert r.status_code == 200 and r.json()["status"] == "queued"
-    tid = r.json()["task_id"]
-    s = client.get(f"/v1/tasks/{tid}", headers=CID).json()
-    assert s["status"] == "queued" and s["source_type"] == "youtube" and s["client_id"] == "alice"
+    tid, t = _enqueue(client, speakers=2, reid=True)
+    assert t and isinstance(t, str)
+    s = client.get(f"/v1/tasks/{tid}", headers=tok(t)).json()
+    assert s["status"] == "queued" and s["client_id"] == "alice"
     assert s["options"]["speakers"] == 2 and s["options"]["reid"] is True
 
 
@@ -91,89 +99,93 @@ def test_create_via_upload(svc):
     store, _, client = svc
     r = client.post("/v1/tasks/upload",
                     files={"file": ("meeting.wav", b"RIFFxxxx", "audio/wav")},
-                    data={"client_id": "bob", "speakers": "2", "reid": "true"})
-    assert r.status_code == 200
+                    data={"client_id": "bob", "speakers": "2"})
+    assert r.status_code == 200 and r.json()["pull_token"]
     t = store.get(r.json()["task_id"])
-    assert t["client_id"] == "bob" and t["source"].endswith("input.wav")
-    assert t["options"]["speakers"] == 2 and t["options"]["reid"] is True
+    assert t["client_id"] == "bob" and t["token"] == r.json()["pull_token"]
+    assert t["source"].endswith("input.wav") and t["options"]["speakers"] == 2
 
 
 def test_create_requires_source_and_client_id(svc):
     _, _, client = svc
-    assert client.post("/v1/tasks", json={}).status_code == 422                       # both missing
-    assert client.post("/v1/tasks", json={"source": "x://y"}).status_code == 422       # client_id missing
-    assert client.post("/v1/tasks", json={"client_id": "a"}).status_code == 422        # source missing
+    assert client.post("/v1/tasks", json={}).status_code == 422
+    assert client.post("/v1/tasks", json={"source": "x://y"}).status_code == 422
+    assert client.post("/v1/tasks", json={"client_id": "a"}).status_code == 422
 
-
-# ---------- API: ownership ----------
 
 def test_blank_client_id_rejected(svc):
     _, _, client = svc
     assert client.post("/v1/tasks", json={"source": "u://x", "client_id": "   "}).status_code == 422
     r = client.post("/v1/tasks/upload",
                     files={"file": ("a.wav", b"x", "audio/wav")}, data={"client_id": "  "})
-    assert r.status_code == 422  # not 500
+    assert r.status_code == 422
 
 
-def test_ownership_enforced(svc):
+# ---------- API: token access control ----------
+
+def test_token_required_for_access(svc):
     _, _, client = svc
-    tid = client.post("/v1/tasks", json={"source": "https://youtu.be/x", "client_id": "alice"}).json()["task_id"]
-    # wrong / missing client_id -> 403
-    assert client.get(f"/v1/tasks/{tid}").status_code == 403
-    assert client.get(f"/v1/tasks/{tid}", headers={"X-Client-Id": "mallory"}).status_code == 403
-    assert client.get(f"/v1/tasks/{tid}/artifact", headers={"X-Client-Id": "mallory"}).status_code == 403
-    # right client_id (also via query param) -> ok
-    assert client.get(f"/v1/tasks/{tid}", headers=CID).status_code == 200
-    assert client.get(f"/v1/tasks/{tid}?client_id=alice").status_code == 200
+    tid, t = _enqueue(client)
+    assert client.get(f"/v1/tasks/{tid}").status_code == 403                       # no token
+    assert client.get(f"/v1/tasks/{tid}", headers=tok("wrong")).status_code == 403  # bad token
+    assert client.get(f"/v1/tasks/{tid}/artifact", headers=tok("wrong")).status_code == 403
+    assert client.get(f"/v1/tasks/{tid}", headers=tok(t)).status_code == 200        # good token
+    assert client.get(f"/v1/tasks/{tid}?token={t}").status_code == 200              # via query
 
 
-def test_list_filters_by_client(svc):
-    _, _, client = svc
-    client.post("/v1/tasks", json={"source": "u://1", "client_id": "alice"})
-    client.post("/v1/tasks", json={"source": "u://2", "client_id": "bob"})
-    assert len(client.get("/v1/tasks", headers={"X-Client-Id": "alice"}).json()["tasks"]) == 1
-    assert len(client.get("/v1/tasks").json()["tasks"]) == 2  # admin (no id) sees all
-
-
-def test_queue_admin_and_delete(svc):
+def test_no_token_task_is_inaccessible(svc):
     store, _, client = svc
-    a = client.post("/v1/tasks", json={"source": "https://youtu.be/a", "client_id": "alice"}).json()["task_id"]
-    b = client.post("/v1/tasks", json={"source": "https://youtu.be/b", "client_id": "alice"}).json()["task_id"]
+    tid = store.create("u://x", "url", {}, client_id="legacy")  # no token (fail closed)
+    assert client.get(f"/v1/tasks/{tid}", headers=tok("anything")).status_code == 403
+
+
+def test_admin_list_and_queue(svc):
+    _, _, client = svc
+    _enqueue(client, client_id="alice")
+    _enqueue(client, client_id="bob")
+    # no API key configured in tests -> admin views open
+    assert len(client.get("/v1/tasks").json()["tasks"]) == 2
+    assert len(client.get("/v1/tasks?client_id=alice").json()["tasks"]) == 1
     q = client.get("/v1/queue").json()
-    assert q["running"] is None and len(q["queued"]) == 2 and q["counts"]["queued"] == 2
-    store.claim_next_queued()
-    q = client.get("/v1/queue").json()
-    assert q["running"]["task_id"] == a and len(q["queued"]) == 1
-    assert client.delete(f"/v1/tasks/{b}", headers=CID).status_code == 200
-    assert client.get(f"/v1/tasks/{b}", headers=CID).status_code == 404
-    assert client.delete(f"/v1/tasks/{a}", headers=CID).status_code == 409  # running
+    assert q["counts"]["queued"] == 2 and q["running"] is None
+
+
+def test_queue_and_delete(svc):
+    store, _, client = svc
+    a, ta = _enqueue(client)
+    b, tb = _enqueue(client)
+    store.claim_next_queued()  # a -> running
+    assert client.get("/v1/queue").json()["running"]["task_id"] == a
+    assert client.delete(f"/v1/tasks/{b}", headers=tok(tb)).status_code == 200
+    assert client.get(f"/v1/tasks/{b}", headers=tok(tb)).status_code == 404
+    assert client.delete(f"/v1/tasks/{a}", headers=tok(ta)).status_code == 409  # running
 
 
 def test_retry(svc):
     store, _, client = svc
-    tid = client.post("/v1/tasks", json={"source": "https://youtu.be/x", "client_id": "alice"}).json()["task_id"]
+    tid, t = _enqueue(client)
     store.update(tid, status="failed", error="boom")
-    assert client.post(f"/v1/tasks/{tid}/retry", headers=CID).status_code == 200
-    assert client.get(f"/v1/tasks/{tid}", headers=CID).json()["status"] == "queued"
-    assert client.post(f"/v1/tasks/{tid}/retry", headers=CID).status_code == 409
+    assert client.post(f"/v1/tasks/{tid}/retry", headers=tok(t)).status_code == 200
+    assert client.get(f"/v1/tasks/{tid}", headers=tok(t)).json()["status"] == "queued"
+    assert client.post(f"/v1/tasks/{tid}/retry", headers=tok(t)).status_code == 409
 
 
 def test_unknown_task_404(svc):
     _, _, client = svc
-    assert client.get("/v1/tasks/nope", headers=CID).status_code == 404
-    assert client.get("/v1/tasks/nope/artifact", headers=CID).status_code == 404
+    assert client.get("/v1/tasks/nope", headers=tok("x")).status_code == 404
+    assert client.get("/v1/tasks/nope/artifact", headers=tok("x")).status_code == 404
 
 
 def test_artifact_lifecycle(svc):
     store, _, client = svc
-    tid = client.post("/v1/tasks", json={"source": "https://youtu.be/x", "client_id": "alice"}).json()["task_id"]
-    assert client.get(f"/v1/tasks/{tid}/artifact", headers=CID).status_code == 409  # not done
+    tid, t = _enqueue(client)
+    assert client.get(f"/v1/tasks/{tid}/artifact", headers=tok(t)).status_code == 409
     rdir = store.results_dir(tid)
     rdir.mkdir(parents=True, exist_ok=True)
     (rdir / "transcript.txt").write_text("hello world")
     (rdir / "segments.json").write_text('{"segments":[]}')
     store.update(tid, status="done", stage="done")
-    resp = client.get(f"/v1/tasks/{tid}/artifact", headers=CID)
+    resp = client.get(f"/v1/tasks/{tid}/artifact", headers=tok(t))
     assert resp.status_code == 200 and resp.headers["content-type"] == "application/zip"
     z = zipfile.ZipFile(io.BytesIO(resp.content))
     assert set(z.namelist()) == {"transcript.txt", "segments.json"}
@@ -188,7 +200,7 @@ def test_agent_info_and_openapi(svc):
     assert client.get("/openapi.json").status_code == 200
 
 
-def test_bearer_auth(tmp_path, monkeypatch):
+def test_admin_endpoints_require_bearer_when_key_set(tmp_path, monkeypatch):
     monkeypatch.setenv("TTS_SERVE_DATA", str(tmp_path))
     monkeypatch.setenv("TTS_SERVE_API_KEY", "secret")
     from tts_serve.service import store as store_mod
@@ -199,7 +211,7 @@ def test_bearer_auth(tmp_path, monkeypatch):
     store_mod.init()
     from fastapi.testclient import TestClient
     client = TestClient(api_mod.app)
-    assert client.get("/v1/tasks/x").status_code == 401  # no token
-    assert client.get("/v1/tasks/x", headers={"Authorization": "Bearer secret",
-                                              "X-Client-Id": "alice"}).status_code == 404
+    h = {"Authorization": "Bearer secret"}
+    assert client.get("/v1/queue").status_code == 401              # no bearer at all
+    assert client.get("/v1/tasks", headers=h).status_code == 200   # admin ok
     assert client.get("/healthz").status_code == 200

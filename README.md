@@ -129,35 +129,38 @@ tts-serve-worker &                       # resident GPU worker (loads model once
 TTS_SERVE_PORT=8088 tts-serve-api        # FastAPI on :8088
 ```
 
-`client_id` is **required** when you queue, and you pass the **same** id to poll /
-pull (so the service knows who owns what). Send it via the `X-Client-Id` header or
-`?client_id=` on reads.
+`client_id` is **required** at enqueue and records **who** queued (attribution).
+Create returns a per-task **`pull_token`** — the unguessable capability you must
+present (header `X-Task-Token` or `?token=`) to poll / download / delete / retry.
+(`client_id` is *not* a credential — it can't be used to access a task.)
 
 ```bash
-# queue a file upload (multipart) -> {"task_id": "...", "status": "queued"}
-curl -F file=@meeting.wav -F client_id=alice -F speakers=2 -F reid=true localhost:8088/v1/tasks/upload
+# queue a file upload (multipart) -> {"task_id", "status", "pull_token"}
+curl -F file=@meeting.wav -F client_id=alice -F speakers=2 localhost:8088/v1/tasks/upload
 
 # queue a URL (YouTube / Bilibili / Google Drive / S3 / http) — JSON
 curl -H 'content-type: application/json' \
      -d '{"source":"https://youtu.be/<id>","client_id":"alice","clip":"0-600","names":true}' \
      localhost:8088/v1/tasks
+# -> {"task_id":"...","status":"queued","pull_token":"<SAVE THIS>"}
 
-# poll (same client_id)
-curl -H 'X-Client-Id: alice' localhost:8088/v1/tasks/<task_id>      # {status, stage, client_id, ...}
+# poll (with the pull_token)
+curl -H 'X-Task-Token: <pull_token>' localhost:8088/v1/tasks/<task_id>
 
 # download artifacts (zip of transcript.txt + subtitle.srt + segments.json + meta.json)
-curl -H 'X-Client-Id: alice' -OJ localhost:8088/v1/tasks/<task_id>/artifact
+curl -H 'X-Task-Token: <pull_token>' -OJ localhost:8088/v1/tasks/<task_id>/artifact
 ```
 
 Task options (form fields or JSON): `hotwords`, `speakers`, `reid`, `names`,
 `clip`, `name`. Status lifecycle: `queued → downloading → preprocessing →
 transcribing → postprocessing → done | failed | cancelled`. **One task runs at a
 time** (single resident GPU worker, FIFO; the store enforces ≤1 `running`).
-**Ownership:** poll/pull/delete/retry require the task's `client_id` (else 403).
-**Storage:** durable SQLite (`data/tasks.db`, WAL) — schema auto-migrates on
-`init()`; terminal tasks older than `TTS_SERVE_RETENTION_DAYS` (default 7) are
-purged on startup + hourly by the worker. Set `TTS_SERVE_API_KEY` to require
-`Authorization: Bearer <key>`.
+**Access control:** task ops require the per-task `pull_token` (fail-closed: a task
+with no token is inaccessible). Cross-task listing (`GET /v1/tasks`, `/v1/queue`) is
+**admin-only** — gated by the `TTS_SERVE_API_KEY` bearer when set (open otherwise, for
+localhost dev). **Storage:** durable SQLite (`data/tasks.db`, WAL) — schema
+auto-migrates on `init()`; terminal tasks older than `TTS_SERVE_RETENTION_DAYS`
+(default 7) are purged on startup + hourly by the worker.
 
 All endpoints are typed (Pydantic) → `/openapi.json` (OpenAPI 3.1) yields a typed
 generated client via `openapi-generator-cli` / `openapi-python-client` / `openapi-typescript`.

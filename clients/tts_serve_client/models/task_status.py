@@ -29,6 +29,7 @@ class TaskStatus:
             task_id (str):
             status (str):
             stage (None | str | Unset):
+            client_id (None | str | Unset):
             source_type (None | str | Unset):
             error (None | str | Unset):
             created_at (float | None | Unset):
@@ -39,6 +40,7 @@ class TaskStatus:
     task_id: str
     status: str
     stage: None | str | Unset = UNSET
+    client_id: None | str | Unset = UNSET
     source_type: None | str | Unset = UNSET
     error: None | str | Unset = UNSET
     created_at: float | None | Unset = UNSET
@@ -61,6 +63,12 @@ class TaskStatus:
             stage = UNSET
         else:
             stage = self.stage
+
+        client_id: None | str | Unset
+        if isinstance(self.client_id, Unset):
+            client_id = UNSET
+        else:
+            client_id = self.client_id
 
         source_type: None | str | Unset
         if isinstance(self.source_type, Unset):
@@ -99,6 +107,8 @@ class TaskStatus:
         })
         if stage is not UNSET:
             field_dict["stage"] = stage
+        if client_id is not UNSET:
+            field_dict["client_id"] = client_id
         if source_type is not UNSET:
             field_dict["source_type"] = source_type
         if error is not UNSET:
@@ -130,6 +140,16 @@ class TaskStatus:
             return cast(None | str | Unset, data)
 
         stage = _parse_stage(d.pop("stage", UNSET))
+
+
+        def _parse_client_id(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        client_id = _parse_client_id(d.pop("client_id", UNSET))
 
 
         def _parse_source_type(data: object) -> None | str | Unset:
@@ -186,6 +206,7 @@ class TaskStatus:
             task_id=task_id,
             status=status,
             stage=stage,
+            client_id=client_id,
             source_type=source_type,
             error=error,
             created_at=created_at,

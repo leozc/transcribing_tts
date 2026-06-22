@@ -29,11 +29,12 @@ def main():
     clip = sys.argv[3] if len(sys.argv) > 3 and sys.argv[2] == "--clip" else "0-20"
     client = Client(base_url=BASE)
 
-    ref = create_task.sync(client=client, body=CreateTaskRequest(source=source, clip=clip))
+    ref = create_task.sync(client=client, body=CreateTaskRequest(source=source, client_id="alice", clip=clip))
+    token = ref.pull_token  # returned only here — required for every later call
     print("queued:", ref.task_id, ref.status)  # ref is a typed TaskRef
 
     while True:
-        st = get_task.sync(client=client, tid=ref.task_id)  # typed TaskStatus
+        st = get_task.sync(client=client, tid=ref.task_id, x_task_token=token)  # typed TaskStatus
         print(f"  status={st.status} stage={st.stage}")
         if st.status in ("done", "failed", "cancelled"):
             break
@@ -42,7 +43,7 @@ def main():
     if st.status != "done":
         print("failed:", st.error)
         return
-    resp = get_artifact.sync_detailed(client=client, tid=ref.task_id)  # bytes (zip)
+    resp = get_artifact.sync_detailed(client=client, tid=ref.task_id, x_task_token=token)  # bytes (zip)
     out = Path(f"/tmp/{ref.task_id}.zip")
     out.write_bytes(resp.content)
     with zipfile.ZipFile(out) as z:

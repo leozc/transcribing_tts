@@ -38,6 +38,7 @@ class CreateTaskRequest(BaseModel):
 class TaskRef(BaseModel):
     task_id: str
     status: str
+    pull_token: str | None = None   # returned ONLY at create; required to poll/pull/delete/retry
 
 
 class TaskStatus(BaseModel):

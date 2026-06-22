@@ -8,23 +8,39 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
+from ...models.http_validation_error import HTTPValidationError
 from ...models.task_list import TaskList
+from ...types import UNSET, Unset
 from typing import cast
 
 
 
 def _get_kwargs(
-    
+    *,
+    client_id: None | str | Unset = UNSET,
+
 ) -> dict[str, Any]:
     
 
     
 
-    
+    params: dict[str, Any] = {}
+
+    json_client_id: None | str | Unset
+    if isinstance(client_id, Unset):
+        json_client_id = UNSET
+    else:
+        json_client_id = client_id
+    params["client_id"] = json_client_id
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/v1/tasks",
+        "params": params,
     }
 
 
@@ -32,7 +48,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> TaskList | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | TaskList | None:
     if response.status_code == 200:
         response_200 = TaskList.from_dict(response.json())
 
@@ -40,13 +56,20 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
         return response_200
 
+    if response.status_code == 422:
+        response_422 = HTTPValidationError.from_dict(response.json())
+
+
+
+        return response_422
+
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[TaskList]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | TaskList]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -58,21 +81,26 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
+    client_id: None | str | Unset = UNSET,
 
-) -> Response[TaskList]:
+) -> Response[HTTPValidationError | TaskList]:
     """ List Tasks
+
+    Args:
+        client_id (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[TaskList]
+        Response[HTTPValidationError | TaskList]
      """
 
 
     kwargs = _get_kwargs(
-        
+        client_id=client_id,
+
     )
 
     response = client.get_httpx_client().request(
@@ -84,42 +112,52 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
+    client_id: None | str | Unset = UNSET,
 
-) -> TaskList | None:
+) -> HTTPValidationError | TaskList | None:
     """ List Tasks
+
+    Args:
+        client_id (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        TaskList
+        HTTPValidationError | TaskList
      """
 
 
     return sync_detailed(
         client=client,
+client_id=client_id,
 
     ).parsed
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
+    client_id: None | str | Unset = UNSET,
 
-) -> Response[TaskList]:
+) -> Response[HTTPValidationError | TaskList]:
     """ List Tasks
+
+    Args:
+        client_id (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[TaskList]
+        Response[HTTPValidationError | TaskList]
      """
 
 
     kwargs = _get_kwargs(
-        
+        client_id=client_id,
+
     )
 
     response = await client.get_async_httpx_client().request(
@@ -131,20 +169,25 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
+    client_id: None | str | Unset = UNSET,
 
-) -> TaskList | None:
+) -> HTTPValidationError | TaskList | None:
     """ List Tasks
+
+    Args:
+        client_id (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        TaskList
+        HTTPValidationError | TaskList
      """
 
 
     return (await asyncio_detailed(
         client=client,
+client_id=client_id,
 
     )).parsed

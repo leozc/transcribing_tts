@@ -27,6 +27,7 @@ class BodyUploadTaskV1TasksUploadPost:
     """ 
         Attributes:
             file (str):
+            client_id (str):
             hotwords (None | str | Unset):
             speakers (int | None | Unset):
             reid (bool | Unset):  Default: False.
@@ -36,6 +37,7 @@ class BodyUploadTaskV1TasksUploadPost:
      """
 
     file: str
+    client_id: str
     hotwords: None | str | Unset = UNSET
     speakers: int | None | Unset = UNSET
     reid: bool | Unset = False
@@ -50,6 +52,8 @@ class BodyUploadTaskV1TasksUploadPost:
 
     def to_dict(self) -> dict[str, Any]:
         file = self.file
+
+        client_id = self.client_id
 
         hotwords: None | str | Unset
         if isinstance(self.hotwords, Unset):
@@ -84,6 +88,7 @@ class BodyUploadTaskV1TasksUploadPost:
         field_dict.update(self.additional_properties)
         field_dict.update({
             "file": file,
+            "client_id": client_id,
         })
         if hotwords is not UNSET:
             field_dict["hotwords"] = hotwords
@@ -105,6 +110,10 @@ class BodyUploadTaskV1TasksUploadPost:
         files: types.RequestFiles = []
 
         files.append(("file", (None, str(self.file).encode(), "text/plain")))
+
+
+
+        files.append(("client_id", (None, str(self.client_id).encode(), "text/plain")))
 
 
 
@@ -164,6 +173,8 @@ class BodyUploadTaskV1TasksUploadPost:
         d = dict(src_dict)
         file = d.pop("file")
 
+        client_id = d.pop("client_id")
+
         def _parse_hotwords(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -210,6 +221,7 @@ class BodyUploadTaskV1TasksUploadPost:
 
         body_upload_task_v1_tasks_upload_post = cls(
             file=file,
+            client_id=client_id,
             hotwords=hotwords,
             speakers=speakers,
             reid=reid,

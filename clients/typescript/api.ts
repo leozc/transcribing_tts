@@ -153,6 +153,8 @@ export interface components {
         Body_upload_task_v1_tasks_upload_post: {
             /** File */
             file: string;
+            /** Client Id */
+            client_id: string;
             /** Hotwords */
             hotwords?: string | null;
             /** Speakers */
@@ -176,6 +178,8 @@ export interface components {
         CreateTaskRequest: {
             /** Source */
             source: string;
+            /** Client Id */
+            client_id: string;
             /** Hotwords */
             hotwords?: string | null;
             /** Speakers */
@@ -236,6 +240,8 @@ export interface components {
             status: string;
             /** Stage */
             stage?: string | null;
+            /** Client Id */
+            client_id?: string | null;
             /** Source Type */
             source_type?: string | null;
             /** Created At */
@@ -268,6 +274,8 @@ export interface components {
             task_id: string;
             /** Status */
             status: string;
+            /** Pull Token */
+            pull_token?: string | null;
         };
         /** TaskStatus */
         TaskStatus: {
@@ -277,6 +285,8 @@ export interface components {
             status: string;
             /** Stage */
             stage?: string | null;
+            /** Client Id */
+            client_id?: string | null;
             /** Source Type */
             source_type?: string | null;
             /** Error */
@@ -337,7 +347,9 @@ export interface operations {
     };
     list_tasks_v1_tasks_get: {
         parameters: {
-            query?: never;
+            query?: {
+                client_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -351,6 +363,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -423,8 +444,12 @@ export interface operations {
     };
     get_task_v1_tasks__tid__get: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                token?: string | null;
+            };
+            header?: {
+                "x-task-token"?: string | null;
+            };
             path: {
                 tid: string;
             };
@@ -454,8 +479,12 @@ export interface operations {
     };
     delete_task_v1_tasks__tid__delete: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                token?: string | null;
+            };
+            header?: {
+                "x-task-token"?: string | null;
+            };
             path: {
                 tid: string;
             };
@@ -505,8 +534,12 @@ export interface operations {
     };
     retry_task_v1_tasks__tid__retry_post: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                token?: string | null;
+            };
+            header?: {
+                "x-task-token"?: string | null;
+            };
             path: {
                 tid: string;
             };
@@ -536,8 +569,12 @@ export interface operations {
     };
     get_artifact_v1_tasks__tid__artifact_get: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                token?: string | null;
+            };
+            header?: {
+                "x-task-token"?: string | null;
+            };
             path: {
                 tid: string;
             };

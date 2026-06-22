@@ -25,6 +25,7 @@ class CreateTaskRequest:
     """ 
         Attributes:
             source (str):
+            client_id (str):
             hotwords (None | str | Unset):
             speakers (int | None | Unset):
             reid (bool | Unset):  Default: False.
@@ -34,6 +35,7 @@ class CreateTaskRequest:
      """
 
     source: str
+    client_id: str
     hotwords: None | str | Unset = UNSET
     speakers: int | None | Unset = UNSET
     reid: bool | Unset = False
@@ -48,6 +50,8 @@ class CreateTaskRequest:
 
     def to_dict(self) -> dict[str, Any]:
         source = self.source
+
+        client_id = self.client_id
 
         hotwords: None | str | Unset
         if isinstance(self.hotwords, Unset):
@@ -82,6 +86,7 @@ class CreateTaskRequest:
         field_dict.update(self.additional_properties)
         field_dict.update({
             "source": source,
+            "client_id": client_id,
         })
         if hotwords is not UNSET:
             field_dict["hotwords"] = hotwords
@@ -104,6 +109,8 @@ class CreateTaskRequest:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         source = d.pop("source")
+
+        client_id = d.pop("client_id")
 
         def _parse_hotwords(data: object) -> None | str | Unset:
             if data is None:
@@ -151,6 +158,7 @@ class CreateTaskRequest:
 
         create_task_request = cls(
             source=source,
+            client_id=client_id,
             hotwords=hotwords,
             speakers=speakers,
             reid=reid,

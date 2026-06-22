@@ -9,26 +9,47 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
+from ...types import UNSET, Unset
 from typing import cast
 
 
 
 def _get_kwargs(
     tid: str,
+    *,
+    token: None | str | Unset = UNSET,
+    x_task_token: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
-    
+    headers: dict[str, Any] = {}
+    if not isinstance(x_task_token, Unset):
+        headers["x-task-token"] = x_task_token
+
+
 
     
 
-    
+    params: dict[str, Any] = {}
+
+    json_token: None | str | Unset
+    if isinstance(token, Unset):
+        json_token = UNSET
+    else:
+        json_token = token
+    params["token"] = json_token
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/v1/tasks/{tid}/artifact".format(tid=quote(str(tid), safe=""),),
+        "params": params,
     }
 
 
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -72,12 +93,16 @@ def sync_detailed(
     tid: str,
     *,
     client: AuthenticatedClient | Client,
+    token: None | str | Unset = UNSET,
+    x_task_token: None | str | Unset = UNSET,
 
 ) -> Response[Any | HTTPValidationError]:
     """ Get Artifact
 
     Args:
         tid (str):
+        token (None | str | Unset):
+        x_task_token (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -90,6 +115,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         tid=tid,
+token=token,
+x_task_token=x_task_token,
 
     )
 
@@ -103,12 +130,16 @@ def sync(
     tid: str,
     *,
     client: AuthenticatedClient | Client,
+    token: None | str | Unset = UNSET,
+    x_task_token: None | str | Unset = UNSET,
 
 ) -> Any | HTTPValidationError | None:
     """ Get Artifact
 
     Args:
         tid (str):
+        token (None | str | Unset):
+        x_task_token (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -122,6 +153,8 @@ def sync(
     return sync_detailed(
         tid=tid,
 client=client,
+token=token,
+x_task_token=x_task_token,
 
     ).parsed
 
@@ -129,12 +162,16 @@ async def asyncio_detailed(
     tid: str,
     *,
     client: AuthenticatedClient | Client,
+    token: None | str | Unset = UNSET,
+    x_task_token: None | str | Unset = UNSET,
 
 ) -> Response[Any | HTTPValidationError]:
     """ Get Artifact
 
     Args:
         tid (str):
+        token (None | str | Unset):
+        x_task_token (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,6 +184,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         tid=tid,
+token=token,
+x_task_token=x_task_token,
 
     )
 
@@ -160,12 +199,16 @@ async def asyncio(
     tid: str,
     *,
     client: AuthenticatedClient | Client,
+    token: None | str | Unset = UNSET,
+    x_task_token: None | str | Unset = UNSET,
 
 ) -> Any | HTTPValidationError | None:
     """ Get Artifact
 
     Args:
         tid (str):
+        token (None | str | Unset):
+        x_task_token (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -179,5 +222,7 @@ async def asyncio(
     return (await asyncio_detailed(
         tid=tid,
 client=client,
+token=token,
+x_task_token=x_task_token,
 
     )).parsed

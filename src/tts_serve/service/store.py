@@ -46,12 +46,13 @@ def init() -> None:
         c.execute(
             """CREATE TABLE IF NOT EXISTS tasks(
                 id TEXT PRIMARY KEY, status TEXT NOT NULL, stage TEXT,
-                client_id TEXT, source TEXT, source_type TEXT, options_json TEXT,
-                error TEXT, created_at REAL, updated_at REAL)"""
+                client_id TEXT, token TEXT, source TEXT, source_type TEXT,
+                options_json TEXT, error TEXT, created_at REAL, updated_at REAL)"""
         )
-        # migrate older DBs that predate a column
+        # migrate older DBs that predate a column (legacy rows get NULL token ->
+        # _owned() fails closed, so they are inaccessible rather than open)
         cols = {r[1] for r in c.execute("PRAGMA table_info(tasks)")}
-        for col in ("client_id",):
+        for col in ("client_id", "token"):
             if col not in cols:
                 c.execute(f"ALTER TABLE tasks ADD COLUMN {col} TEXT")
         c.execute("CREATE INDEX IF NOT EXISTS idx_status ON tasks(status)")
@@ -66,15 +67,17 @@ def results_dir(tid: str) -> Path:
     return task_dir(tid) / "results"
 
 
-def create(source: str, source_type: str, options: dict, client_id: str | None = None) -> str:
+def create(source: str, source_type: str, options: dict,
+           client_id: str | None = None, token: str | None = None) -> str:
     tid = uuid.uuid4().hex
     now = time.time()
     task_dir(tid).mkdir(parents=True, exist_ok=True)
     with _conn() as c:
         c.execute(
-            "INSERT INTO tasks(id,status,stage,client_id,source,source_type,options_json,error,created_at,updated_at)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?)",
-            (tid, "queued", None, client_id, source, source_type, json.dumps(options), None, now, now),
+            "INSERT INTO tasks(id,status,stage,client_id,token,source,source_type,options_json,error,created_at,updated_at)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (tid, "queued", None, client_id, token, source, source_type,
+             json.dumps(options), None, now, now),
         )
     return tid
 

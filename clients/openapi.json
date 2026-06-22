@@ -25,34 +25,18 @@
       }
     },
     "/v1/tasks": {
-      "get": {
-        "summary": "List Tasks",
-        "operationId": "list_tasks_v1_tasks_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskList"
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
         "summary": "Create Task",
         "operationId": "create_task_v1_tasks_post",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateTaskRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -61,6 +45,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TaskRef"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Tasks",
+        "operationId": "list_tasks_v1_tasks_get",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskList"
                 }
               }
             }
@@ -129,6 +157,38 @@
               "type": "string",
               "title": "Tid"
             }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          },
+          {
+            "name": "x-task-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Task-Token"
+            }
           }
         ],
         "responses": {
@@ -165,6 +225,38 @@
             "schema": {
               "type": "string",
               "title": "Tid"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          },
+          {
+            "name": "x-task-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Task-Token"
             }
           }
         ],
@@ -223,6 +315,38 @@
               "type": "string",
               "title": "Tid"
             }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          },
+          {
+            "name": "x-task-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Task-Token"
+            }
           }
         ],
         "responses": {
@@ -261,6 +385,38 @@
             "schema": {
               "type": "string",
               "title": "Tid"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          },
+          {
+            "name": "x-task-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Task-Token"
             }
           }
         ],
@@ -324,6 +480,10 @@
             "contentMediaType": "application/octet-stream",
             "title": "File"
           },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
           "hotwords": {
             "anyOf": [
               {
@@ -381,7 +541,8 @@
         },
         "type": "object",
         "required": [
-          "file"
+          "file",
+          "client_id"
         ],
         "title": "Body_upload_task_v1_tasks_upload_post"
       },
@@ -391,6 +552,11 @@
             "type": "string",
             "title": "Source"
           },
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Client Id"
+          },
           "hotwords": {
             "anyOf": [
               {
@@ -448,7 +614,8 @@
         },
         "type": "object",
         "required": [
-          "source"
+          "source",
+          "client_id"
         ],
         "title": "CreateTaskRequest"
       },
@@ -546,6 +713,17 @@
               }
             ],
             "title": "Stage"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
           },
           "source_type": {
             "anyOf": [
@@ -657,6 +835,17 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "pull_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pull Token"
           }
         },
         "type": "object",
@@ -686,6 +875,17 @@
               }
             ],
             "title": "Stage"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
           },
           "source_type": {
             "anyOf": [
