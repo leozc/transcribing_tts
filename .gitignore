@@ -36,3 +36,6 @@ benchmark/captions/
 dist/
 build/
 *.spec
+
+# service secrets (systemd EnvironmentFile)
+.env_service

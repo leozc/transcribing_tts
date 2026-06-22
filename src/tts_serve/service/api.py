@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hmac
 import io
+import logging
 import os
 import secrets
 import zipfile
@@ -30,6 +31,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, 
 from fastapi.responses import StreamingResponse
 
 from tts_serve.service import store
+from tts_serve.service.logconf import setup_logging
 from tts_serve.service.models import (
     ClientCreate, ClientCredentials, CreateTaskRequest, DeleteResult, Health,
     QueuedItem, QueueStatus, RunningInfo, TaskList, TaskRef, TaskStatus,
@@ -37,18 +39,24 @@ from tts_serve.service.models import (
 
 _AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".opus", ".mp4", ".webm", ".mov", ".mkv", ".aac"}
 
+log = logging.getLogger("tts_serve.api")
+
 app = FastAPI(title="tts_serve", version="0.1.0",
               description="Self-hosted meeting transcription — queue / poll / artifact.")
 
 
 @app.on_event("startup")
 def _startup() -> None:
+    setup_logging("api")
     store.init()
-    # lifecycle maintenance: purge terminal tasks older than retention (0 disables)
+    auth_on = bool(os.environ.get("TTS_SERVE_API_KEY"))
     days = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
+    log.info("api starting | data=%s db=%s admin_bearer=%s retention=%.0fd",
+             store.DATA, store.DB, "on" if auth_on else "OFF(dev-open)", days)
+    # lifecycle maintenance: purge terminal tasks older than retention (0 disables)
     n = store.purge_old(days)
     if n:
-        print(f"[api] purged {n} task(s) older than {days}d", flush=True)
+        log.info("purged %d task(s) older than %.0fd on startup", n, days)
 
 
 async def _auth(request: Request) -> None:
@@ -131,7 +139,9 @@ def register_client(req: ClientCreate, _=Depends(_auth)) -> ClientCredentials:
     client_id is first-come-first-served; 409 if already taken."""
     key = store.create_client(req.client_id)
     if key is None:
+        log.info("register REJECTED client_id=%s (already taken)", req.client_id)
         raise HTTPException(409, "client_id already registered")
+    log.info("registered client_id=%s", req.client_id)
     return ClientCredentials(client_id=req.client_id, client_key=key)
 
 
@@ -141,8 +151,9 @@ def create_task(req: CreateTaskRequest, client: str | None = Depends(_client_aut
     from tts_serve.sources import classify
     owner = _require_client(client, req.client_id)
     token = secrets.token_urlsafe(24)
-    tid = store.create(req.source, classify(req.source), req.options(),
-                       client_id=owner, token=token)
+    stype = classify(req.source)
+    tid = store.create(req.source, stype, req.options(), client_id=owner, token=token)
+    log.info("enqueued task %s (client=%s type=%s opts=%s)", tid, owner, stype, req.options())
     return TaskRef(task_id=tid, status="queued", pull_token=token)
 
 
@@ -164,6 +175,7 @@ async def upload_task(
                             speakers=speakers, reid=reid, names=names, clip=clip, name=name)
     token = secrets.token_urlsafe(24)
     tid = _save_upload(file.filename, await file.read(), req.options(), owner, token)
+    log.info("enqueued upload task %s (client=%s file=%s opts=%s)", tid, owner, file.filename, req.options())
     return TaskRef(task_id=tid, status="queued", pull_token=token)
 
 
@@ -210,6 +222,7 @@ def delete_task(tid: str, token: str | None = Depends(_pull_token),
         raise HTTPException(409, "cannot remove a running task")
     if not store.delete(tid):  # raced to 'running' between the check and here
         raise HTTPException(409, "cannot remove a running task")
+    log.info("deleted task %s (was %s)", tid, t["status"])
     return DeleteResult(deleted=tid, was=t["status"])
 
 
@@ -220,6 +233,7 @@ def retry_task(tid: str, token: str | None = Depends(_pull_token),
     if t["status"] not in ("failed", "cancelled"):
         raise HTTPException(409, f"can only retry failed/cancelled (status={t['status']})")
     store.update(tid, status="queued", stage=None, error=None)
+    log.info("retried task %s (was %s)", tid, t["status"])
     return TaskRef(task_id=tid, status="queued")
 
 
@@ -310,8 +324,11 @@ def agent_info() -> dict:
 
 def main() -> None:
     import uvicorn
+    setup_logging("api")  # configure before uvicorn so its loggers use our handlers
+    level = os.environ.get("TTS_SERVE_LOG_LEVEL", "INFO").lower()
     uvicorn.run(app, host=os.environ.get("TTS_SERVE_HOST", "0.0.0.0"),
-                port=int(os.environ.get("TTS_SERVE_PORT", "8080")))
+                port=int(os.environ.get("TTS_SERVE_PORT", "8080")),
+                log_config=None, log_level=level)
 
 
 if __name__ == "__main__":

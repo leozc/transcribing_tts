@@ -11,14 +11,15 @@ import os
 # Reduce cross-file GPU fragmentation (must precede torch import).
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
-import sys
 import time
-import traceback
 
 from tts_serve import core
 from tts_serve.outputs import write_outputs
 from tts_serve.service import store
+from tts_serve.service.logconf import setup_logging
 from tts_serve.sources import SourceOpts
+
+log = setup_logging("worker")
 
 
 def _default_cookies() -> str | None:
@@ -46,27 +47,33 @@ def _process(asr, task: dict) -> None:
     src_opts = _opts_from_env()
     if o.get("gdrive_public"):
         src_opts.gdrive_public = True
+
+    def progress(st: str) -> None:
+        store.update(tid, stage=st)
+        log.info("task %s stage=%s", tid, st)
+
     doc = core.transcribe_source(
         task["source"], workdir=store.task_dir(tid), opts=src_opts, asr=asr,
         hotwords=o.get("hotwords"), speakers=o.get("speakers"),
         reid=bool(o.get("reid")), names=bool(o.get("names")),
         clip=o.get("clip"), name=o.get("name"),
-        progress=lambda st: store.update(tid, stage=st),
+        progress=progress,
     )
     write_outputs(store.results_dir(tid), doc)
     store.update(tid, status="done", stage="done")
-    print(f"[worker] {tid} done: {doc['n_segments']} segs, speakers={doc['speakers']}", flush=True)
+    log.info("task %s DONE: %d segs, speakers=%s", tid, doc["n_segments"], doc["speakers"])
 
 
 def main() -> None:
     store.init()
+    log.info("worker starting | data=%s db=%s", store.DATA, store.DB)
     reclaimed = store.reclaim_stale()  # requeue tasks orphaned by a previous crash
     if reclaimed:
-        print(f"[worker] re-queued {reclaimed} stale running task(s)", flush=True)
-    print("[worker] loading VibeVoice-ASR (resident)...", flush=True)
+        log.warning("re-queued %d stale running task(s) from a previous crash", reclaimed)
+    log.info("loading VibeVoice-ASR (resident)...")
     from tts_serve.asr import VibeVoiceASR
     asr = VibeVoiceASR()
-    print(f"[worker] model ready in {asr.load_seconds:.1f}s; polling queue", flush=True)
+    log.info("model ready in %.1fs; polling queue", asr.load_seconds)
     poll = float(os.environ.get("TTS_SERVE_POLL", "1.0"))
     retention = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
     last_maint = 0.0
@@ -75,19 +82,20 @@ def main() -> None:
         if time.time() - last_maint > 3600:
             n = store.purge_old(retention)
             if n:
-                print(f"[worker] purged {n} old task(s)", flush=True)
+                log.info("purged %d old task(s) (retention=%.0fd)", n, retention)
             last_maint = time.time()
         task = store.claim_next_queued()
         if not task:
             time.sleep(poll)
             continue
-        print(f"[worker] claimed {task['id']} ({task['source_type']})", flush=True)
+        log.info("claimed %s (client=%s type=%s)", task["id"], task.get("client_id"), task["source_type"])
+        t0 = time.monotonic()
         try:
             _process(asr, task)
+            log.info("task %s finished in %.1fs", task["id"], time.monotonic() - t0)
         except Exception as e:  # noqa: BLE001
             store.update(task["id"], status="failed", error=str(e))
-            print(f"[worker] {task['id']} FAILED: {e}", file=sys.stderr, flush=True)
-            traceback.print_exc()
+            log.error("task %s FAILED after %.1fs: %s", task["id"], time.monotonic() - t0, e, exc_info=True)
 
 
 if __name__ == "__main__":

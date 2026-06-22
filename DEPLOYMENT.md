@@ -61,6 +61,44 @@ torch/CUDA and downloads the ~17 GB model at runtime — so run it from the inst
 (`tts-serve-worker`) on the same host/`data/`. Verified: the binary runs under `env -i`
 (no PATH/venv) and drives the full register → upload → poll → artifact flow.
 
+## Run as a service (systemd user units) — recommended
+`scripts/install_systemd.sh` writes two **user** units (linger is on, so they survive
+logout/reboot): `tts-api` runs the standalone **binary**, `tts-worker` runs the venv
+GPU worker. Both `Restart=on-failure`.
+```bash
+bash scripts/build_api_binary.sh          # produce dist/tts-serve-api
+bash scripts/install_systemd.sh           # install + daemon-reload (data=./data, port 8088)
+systemctl --user enable --now tts-api tts-worker
+systemctl --user status tts-api tts-worker
+```
+Secrets/config (optional): put `DEEPSEEK_API_KEY=…`, `AWS_*`, `YT_COOKIES=…`,
+`TTS_SERVE_API_KEY=…` in `./.env_service` (gitignored; read via `EnvironmentFile=-`).
+Stop/remove: `systemctl --user disable --now tts-worker tts-api` (this frees the GPU).
+
+## Logging (for debugging)
+Both processes use `service/logconf.py`: component-tagged, leveled lines to **stdout**
+(captured by journald) **and** a rotating file under `<DATA>/logs/{api,worker}.log`
+(10 MB × 5). Level via `TTS_SERVE_LOG_LEVEL` (default INFO; set `DEBUG` for verbose);
+disable the file with `TTS_SERVE_LOG_DIR=none` or redirect with `TTS_SERVE_LOG_DIR=<dir>`.
+```bash
+journalctl --user -u tts-worker -f     # live worker log (claim -> stages -> done/fail + timing)
+journalctl --user -u tts-api -f        # live API log (startup config, enqueue/delete/retry, access)
+tail -f data/logs/worker.log           # same, on disk (works for the standalone binary too)
+```
+The worker logs each task's lifecycle — `claimed <id> (client=… type=…)`, every
+`stage=…` transition, `DONE: N segs, speakers=…`, `finished in Ns`, or `FAILED … ` with
+a full traceback (`exc_info`). uvicorn's access/error logs are reformatted through the
+same handler so everything is one consistent stream.
+
+## State on disk — where things live
+- **SQLite queue/state**: `<DATA>/tasks.db` (+ `-wal`, `-shm` from WAL mode). Default
+  `<repo>/data/tasks.db`; override the whole data root with `TTS_SERVE_DATA`.
+- **Per-task files**: `<DATA>/tasks/<id>/` — `input.*` (upload/download) + `results/`
+  (`transcript.txt`, `subtitle.srt`, `segments.json`, `meta.json`).
+- **Logs**: `<DATA>/logs/{api,worker}.log`. **Registered clients**: a `clients` table in
+  the same DB (only SHA-256 key hashes). Terminal tasks are purged after
+  `TTS_SERVE_RETENTION_DAYS` (default 7).
+
 ## Reliability
 - WAL SQLite handles concurrent access; `BEGIN IMMEDIATE` makes the claim atomic.
 - **Crash recovery**: worker calls `reclaim_stale()` on startup → any task left `running`
