@@ -55,6 +55,11 @@ class ResolvedSource:
 # ---------------------------------------------------------------------------
 
 _YT_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "music.youtube.com"}
+_BILI_HOSTS = {"bilibili.com", "www.bilibili.com", "m.bilibili.com",
+               "player.bilibili.com", "b23.tv", "b23.cn"}
+# canonical id from a bilibili URL (BV id / legacy av / bvid|aid query). NOT run on
+# b23.* short links (opaque path) — those are passed straight to yt-dlp.
+_BILI_ID = re.compile(r"(?:/video/|/festival/[^/]+/video/|[?&]bvid=|[?&]aid=)(BV[A-Za-z0-9]{10}|av\d+|\d+)")
 _GDRIVE_HOSTS = {"drive.google.com", "docs.google.com"}
 _GDRIVE_FILE_ID = re.compile(r"/d/([A-Za-z0-9_-]+)|[?&]id=([A-Za-z0-9_-]+)")
 _GDRIVE_FOLDER_ID = re.compile(r"/folders/([A-Za-z0-9_-]+)")
@@ -74,6 +79,8 @@ def classify(source: str) -> str:
         host = (urlparse(source).hostname or "").lower()
         if host in _YT_HOSTS:
             return "youtube"
+        if host in _BILI_HOSTS:
+            return "bilibili"
         if host in _GDRIVE_HOSTS:
             return "gdrive"
         return "url"
@@ -287,6 +294,45 @@ class GDriveProvider(FileProvider):
         return _gdown_fetch(kind, gid, workdir)
 
 
+_YTDLP_AUDIO_FMT = "140/bestaudio/best"  # itag 140 = youtube m4a; bilibili falls to bestaudio
+
+
+def _has_curl_cffi() -> bool:
+    try:
+        import curl_cffi  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def _ytdlp_fetch(source: str, workdir: Path, opts: SourceOpts, *, origin: str,
+                 prefix: str, label: str | None = None,
+                 impersonate: str | None = None) -> ResolvedSource:
+    """Download best audio for `source` via yt-dlp -> ResolvedSource.
+
+    Shared by YouTube and Bilibili. `prefix` names the output file (so the BV/
+    video id ends up in the stem); `label` overrides the doc source label,
+    else f'{origin}:{stem}'. `impersonate` (e.g. 'chrome') uses curl_cffi TLS
+    fingerprinting — Bilibili needs it to avoid HTTP 412 risk-control.
+    """
+    out_tmpl = str(workdir / f"{prefix}_%(id)s.%(ext)s")
+    cmd = [sys.executable, "-m", "yt_dlp", "-f", _YTDLP_AUDIO_FMT,
+           "-o", out_tmpl, "--no-playlist", "--print", "after_move:filepath"]
+    if impersonate:
+        cmd += ["--impersonate", impersonate]
+    if opts.cookies:
+        cmd += ["--cookies", opts.cookies]
+    cmd.append(source)
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if res.returncode != 0:
+        raise RuntimeError(f"yt-dlp failed ({origin}): {res.stderr[-600:]}")
+    out = res.stdout.strip().splitlines()
+    if not out:
+        raise RuntimeError(f"yt-dlp produced no output path ({origin}): {res.stderr[-400:]}")
+    path = Path(out[-1])
+    return ResolvedSource(path, origin, label or f"{origin}:{path.stem}", path.stem, is_temp=True)
+
+
 class YouTubeProvider(FileProvider):
     name = "youtube"
 
@@ -294,19 +340,30 @@ class YouTubeProvider(FileProvider):
         return classify(source) == "youtube"
 
     def fetch(self, source: str, workdir: Path, opts: SourceOpts) -> ResolvedSource:
-        out_tmpl = str(workdir / "yt_%(id)s.%(ext)s")
-        cmd = [sys.executable, "-m", "yt_dlp", "-f", "140/bestaudio/best",
-               "-o", out_tmpl, "--no-playlist", "--print", "after_move:filepath"]
-        if opts.cookies:
-            cmd += ["--cookies", opts.cookies]
-        cmd.append(source)
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode != 0:
-            raise RuntimeError(f"yt-dlp failed: {res.stderr[-500:]}")
-        path = Path(res.stdout.strip().splitlines()[-1])
         vid = re.search(r"[?&]v=([\w-]+)", source) or re.search(r"youtu\.be/([\w-]+)", source)
-        label = f"youtube:{vid.group(1)}" if vid else f"youtube:{path.stem}"
-        return ResolvedSource(path, "youtube", label, path.stem, is_temp=True)
+        label = f"youtube:{vid.group(1)}" if vid else None
+        return _ytdlp_fetch(source, workdir, opts, origin="youtube", prefix="yt", label=label)
+
+
+class BilibiliProvider(FileProvider):
+    name = "bilibili"
+
+    def matches(self, source: str) -> bool:
+        return classify(source) == "bilibili"
+
+    def fetch(self, source: str, workdir: Path, opts: SourceOpts) -> ResolvedSource:
+        # b23.* short links have an opaque path -> let yt-dlp resolve; label from stem.
+        host = (urlparse(source).hostname or "").lower()
+        label = None
+        if host not in ("b23.tv", "b23.cn"):
+            m = _BILI_ID.search(source)
+            if m:
+                label = f"bilibili:{m.group(1)}"
+        # Bilibili risk-controls non-browser clients; impersonate to dodge HTTP 412
+        # (only if curl_cffi is installed, else --impersonate would error).
+        imp = "chrome" if _has_curl_cffi() else None
+        return _ytdlp_fetch(source, workdir, opts, origin="bilibili", prefix="bili",
+                            label=label, impersonate=imp)
 
 
 class HttpUrlProvider(FileProvider):
@@ -330,6 +387,7 @@ PROVIDERS: list[FileProvider] = [
     S3Provider(),
     GDriveProvider(),
     YouTubeProvider(),
+    BilibiliProvider(),
     HttpUrlProvider(),
     LocalFileProvider(),
 ]

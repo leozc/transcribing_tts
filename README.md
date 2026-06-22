@@ -63,6 +63,7 @@ tts-serve transcribe call.wav --stdout json | jq '.segments[0]'
 |---|---|---|
 | Local file | `meeting.mp3`, `/abs/a.wav` | direct |
 | YouTube | `https://youtu.be/…`, `…youtube.com/watch?v=…` | `yt-dlp` (+ `--cookies`) |
+| Bilibili | `…bilibili.com/video/BV…`, `b23.tv/…` | `yt-dlp` (TLS-impersonate via `curl_cffi`; needs `--cookies` or a residential IP — Bilibili 412-blocks datacenter IPs) |
 | Google Drive | `…/file/d/<ID>/…`, `…/drive/folders/<FID>`, `gdrive://<ID>` | Drive API / `gdown` |
 | S3 | `s3://bucket/key.m4a` | `boto3` |
 | Direct URL | `https://…/clip.m4a` | streamed download |

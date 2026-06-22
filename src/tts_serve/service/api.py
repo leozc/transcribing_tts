@@ -161,7 +161,7 @@ def agent_info() -> dict:
     """Concise, agent-facing guide. Full machine spec: /openapi.json and /docs."""
     return {
         "service": "tts_serve",
-        "summary": "Transcribe audio/video (file, YouTube, Google Drive, S3, URL) into a "
+        "summary": "Transcribe audio/video (file, YouTube, Bilibili, Google Drive, S3, URL) into a "
                    "speaker-attributed, timestamped transcript. Async: queue a task, poll, "
                    "download a zip of artifacts.",
         "workflow": [

@@ -117,6 +117,63 @@ def test_resolve_youtube_dispatch(tmp_path, monkeypatch):
     assert rs.is_temp is True
     assert "yt_dlp" in captured["cmd"]
 
+@pytest.mark.parametrize("url,label_id", [
+    ("https://www.bilibili.com/video/BV1Gx411V79L", "BV1Gx411V79L"),
+    ("https://m.bilibili.com/video/BV1Gx411V79L?spm_id_from=333&vd_source=x", "BV1Gx411V79L"),
+    ("https://www.bilibili.com/video/BV1Gx411V79L?p=2", "BV1Gx411V79L"),
+    ("https://www.bilibili.com/video/av170001", "av170001"),
+    ("https://www.bilibili.com/festival/2024/video/BV1Gx411V79L", "BV1Gx411V79L"),
+    ("https://player.bilibili.com/player.html?bvid=BV1Gx411V79L&page=1", "BV1Gx411V79L"),
+    ("https://player.bilibili.com/player.html?aid=170001&page=2", "170001"),
+])
+def test_bilibili_classify_and_id(url, label_id):
+    assert classify(url) == "bilibili"
+    assert isinstance(get_provider(url), sources.BilibiliProvider)
+    assert sources._BILI_ID.search(url).group(1) == label_id
+
+
+def test_bilibili_host_edges():
+    assert classify("https://b23.tv/abc123") == "bilibili"        # short link -> bilibili host
+    assert classify("https://space.bilibili.com/12345") == "url"  # user space, not a video
+    assert classify("https://www.youtube.com/watch?v=x") == "youtube"  # no regression
+    assert classify("https://example.com/audio.mp3") == "url"
+
+
+def test_resolve_bilibili_dispatch(tmp_path, monkeypatch):
+    captured = {}
+
+    class FakeProc:
+        returncode = 0
+        stderr = ""
+        stdout = str(tmp_path / "w" / "bili_BV1Gx411V79L.m4a")
+
+    def fake_run(cmd, **kw):
+        captured["cmd"] = cmd
+        Path(FakeProc.stdout).parent.mkdir(parents=True, exist_ok=True)
+        Path(FakeProc.stdout).write_bytes(b"audio")
+        return FakeProc()
+
+    monkeypatch.setattr(sources.subprocess, "run", fake_run)
+    rs = resolve("https://www.bilibili.com/video/BV1Gx411V79L", tmp_path / "w")
+    assert rs.origin == "bilibili" and rs.label == "bilibili:BV1Gx411V79L"
+    assert "yt_dlp" in captured["cmd"] and "--impersonate" in captured["cmd"]
+
+
+def test_resolve_bilibili_b23_label_from_stem(tmp_path, monkeypatch):
+    class FakeProc:
+        returncode = 0
+        stderr = ""
+        stdout = str(tmp_path / "w" / "bili_BV1PfjC66EMZ.m4a")
+    def fake_run(cmd, **kw):
+        Path(FakeProc.stdout).parent.mkdir(parents=True, exist_ok=True)
+        Path(FakeProc.stdout).write_bytes(b"audio")
+        return FakeProc()
+    monkeypatch.setattr(sources.subprocess, "run", fake_run)
+    # b23 short link: id not in path -> label falls back to file stem (origin:stem)
+    rs = resolve("https://b23.tv/fZQNYqJ", tmp_path / "w")
+    assert rs.origin == "bilibili" and rs.label == "bilibili:bili_BV1PfjC66EMZ"
+
+
 def test_resolve_youtube_failure_raises(tmp_path, monkeypatch):
     class FakeProc:
         returncode = 1
