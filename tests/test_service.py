@@ -23,20 +23,59 @@ def svc(tmp_path, monkeypatch):
 
 # ---------- store ----------
 
-def test_store_crud_and_claim(svc):
+def test_store_single_concurrency_fifo(svc):
     store, _, _ = svc
     a = store.create("s3://b/a.wav", "s3", {"reid": True})
     b = store.create("https://youtu.be/x", "youtube", {})
-    assert store.get(a)["status"] == "queued"
     assert store.get(a)["options"] == {"reid": True}
-    # FIFO claim: a before b
-    c1 = store.claim_next_queued()
-    assert c1["id"] == a and c1["status"] == "running"
-    c2 = store.claim_next_queued()
-    assert c2["id"] == b
-    assert store.claim_next_queued() is None  # nothing left queued
+    # FIFO: a claimed first
+    assert store.claim_next_queued()["id"] == a
+    # single concurrency: nothing else claimed while a is running
+    assert store.claim_next_queued() is None
     store.update(a, status="done", stage="done")
-    assert store.get(a)["status"] == "done"
+    # now b can run
+    assert store.claim_next_queued()["id"] == b
+    assert store.claim_next_queued() is None
+
+
+def test_reclaim_stale(svc):
+    store, _, _ = svc
+    a = store.create("s3://b/a.wav", "s3", {})
+    store.claim_next_queued()
+    assert store.get(a)["status"] == "running"
+    assert store.reclaim_stale() == 1            # orphaned running -> queued
+    assert store.get(a)["status"] == "queued"
+    assert store.claim_next_queued()["id"] == a  # claimable again
+
+
+def test_queue_admin_and_delete(svc):
+    store, _, client = svc
+    a = client.post("/v1/tasks", json={"source": "https://youtu.be/a"}).json()["task_id"]
+    b = client.post("/v1/tasks", json={"source": "https://youtu.be/b"}).json()["task_id"]
+    q = client.get("/v1/queue").json()
+    assert q["running"] is None and len(q["queued"]) == 2 and q["counts"]["queued"] == 2
+    store.claim_next_queued()  # simulate worker taking a
+    q = client.get("/v1/queue").json()
+    assert q["running"]["task_id"] == a and len(q["queued"]) == 1
+    assert client.delete(f"/v1/tasks/{b}").status_code == 200       # remove queued b
+    assert client.get(f"/v1/tasks/{b}").status_code == 404
+    assert client.delete(f"/v1/tasks/{a}").status_code == 409       # can't delete running
+
+
+def test_retry(svc):
+    store, _, client = svc
+    tid = client.post("/v1/tasks", json={"source": "https://youtu.be/x"}).json()["task_id"]
+    store.update(tid, status="failed", error="boom")
+    assert client.post(f"/v1/tasks/{tid}/retry").status_code == 200
+    assert client.get(f"/v1/tasks/{tid}").json()["status"] == "queued"
+    assert client.post(f"/v1/tasks/{tid}/retry").status_code == 409  # not failed/cancelled now
+
+
+def test_agent_info_and_openapi(svc):
+    _, _, client = svc
+    r = client.get("/agent_info").json()
+    assert r["service"] == "tts_serve" and r["workflow"] and r["spec"]["openapi"] == "/openapi.json"
+    assert client.get("/openapi.json").status_code == 200
 
 
 # ---------- API ----------

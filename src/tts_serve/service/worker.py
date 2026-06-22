@@ -50,6 +50,9 @@ def _process(asr, task: dict) -> None:
 
 def main() -> None:
     store.init()
+    reclaimed = store.reclaim_stale()  # requeue tasks orphaned by a previous crash
+    if reclaimed:
+        print(f"[worker] re-queued {reclaimed} stale running task(s)", flush=True)
     print("[worker] loading VibeVoice-ASR (resident)...", flush=True)
     from tts_serve.asr import VibeVoiceASR
     asr = VibeVoiceASR()

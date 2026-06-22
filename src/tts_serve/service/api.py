@@ -135,6 +135,89 @@ def get_artifact(tid: str, _=Depends(_auth)):
     )
 
 
+@app.get("/v1/queue")
+def queue(_=Depends(_auth)) -> dict:
+    """Admin: what's running now + the pending queue + status counts."""
+    running = store.running_task()
+    return {
+        "running": {"task_id": running["id"], "stage": running["stage"],
+                    "source_type": running["source_type"], "updated_at": running["updated_at"]}
+        if running else None,
+        "queued": store.list_tasks(status="queued"),
+        "counts": store.counts(),
+    }
+
+
+@app.delete("/v1/tasks/{tid}")
+def delete_task(tid: str, _=Depends(_auth)) -> dict:
+    """Admin: remove a task (cancel a queued one / clean up done/failed). A
+    running task can't be removed mid-flight (409)."""
+    t = store.get(tid)
+    if not t:
+        raise HTTPException(404, "unknown task id")
+    if t["status"] == "running":
+        raise HTTPException(409, "cannot remove a running task")
+    store.delete(tid)
+    return {"deleted": tid, "was": t["status"]}
+
+
+@app.post("/v1/tasks/{tid}/retry")
+def retry_task(tid: str, _=Depends(_auth)) -> dict:
+    """Admin: requeue a failed/cancelled task."""
+    t = store.get(tid)
+    if not t:
+        raise HTTPException(404, "unknown task id")
+    if t["status"] not in ("failed", "cancelled"):
+        raise HTTPException(409, f"can only retry failed/cancelled (status={t['status']})")
+    store.update(tid, status="queued", stage=None, error=None)
+    return {"task_id": tid, "status": "queued"}
+
+
+@app.get("/agent_info")
+def agent_info() -> dict:
+    """Concise, agent-facing description of how to drive this API.
+    (For the full machine spec see /openapi.json and the Swagger UI at /docs.)"""
+    return {
+        "service": "tts_serve",
+        "summary": "Transcribe audio/video (file, YouTube, Google Drive, S3, or URL) into a "
+                   "speaker-attributed, timestamped transcript. Async: queue a task, poll it, "
+                   "download a zip of artifacts.",
+        "workflow": [
+            "1. POST /v1/tasks with a file upload OR a source URL -> {task_id}",
+            "2. GET /v1/tasks/{task_id} and poll until status == 'done' (or 'failed')",
+            "3. GET /v1/tasks/{task_id}/artifact -> zip (transcript.txt, subtitle.srt, segments.json, meta.json)",
+        ],
+        "concurrency": "One task runs at a time (single resident GPU worker, FIFO queue).",
+        "status_lifecycle": ["queued", "downloading", "preprocessing", "transcribing",
+                              "postprocessing", "done", "failed", "cancelled"],
+        "task_options": {
+            "hotwords": "comma-separated names/terms to bias ASR",
+            "speakers": "int, expected speaker count (improves diarization / re-id)",
+            "reid": "bool, voiceprint speaker re-identification (use with speakers)",
+            "names": "bool, suggest real speaker names from self-intros (LLM)",
+            "clip": "START-END seconds, e.g. '0-600'",
+            "name": "meeting name (default derived from source)",
+        },
+        "endpoints": [
+            {"method": "POST", "path": "/v1/tasks",
+             "body": "multipart form with file=@audio + option fields, OR JSON {source, ...options}",
+             "returns": "{task_id, status}",
+             "examples": [
+                 "curl -F file=@meeting.wav -F speakers=2 -F reid=true <base>/v1/tasks",
+                 "curl -H 'content-type: application/json' -d '{\"source\":\"https://youtu.be/ID\",\"names\":true}' <base>/v1/tasks",
+             ]},
+            {"method": "GET", "path": "/v1/tasks/{id}", "returns": "{status, stage, error, ...}"},
+            {"method": "GET", "path": "/v1/tasks/{id}/artifact", "returns": "application/zip (200 done / 409 not-ready / 404)"},
+            {"method": "GET", "path": "/v1/tasks", "returns": "recent tasks"},
+            {"method": "GET", "path": "/v1/queue", "returns": "{running, queued[], counts}"},
+            {"method": "DELETE", "path": "/v1/tasks/{id}", "returns": "remove a queued/done/failed task (409 if running)"},
+            {"method": "POST", "path": "/v1/tasks/{id}/retry", "returns": "requeue a failed/cancelled task"},
+        ],
+        "auth": "If TTS_SERVE_API_KEY is set, send 'Authorization: Bearer <key>'.",
+        "spec": {"openapi": "/openapi.json", "swagger_ui": "/docs"},
+    }
+
+
 def main() -> None:
     import uvicorn
     uvicorn.run(app, host=os.environ.get("TTS_SERVE_HOST", "0.0.0.0"),

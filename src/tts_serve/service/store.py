@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 import time
 import uuid
@@ -17,7 +18,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 DATA = Path(os.environ.get("TTS_SERVE_DATA", _ROOT / "data"))
 DB = DATA / "tasks.db"
 
-STATUSES = ("queued", "running", "done", "failed")
+STATUSES = ("queued", "running", "done", "failed", "cancelled")
 
 
 def _conn() -> sqlite3.Connection:
@@ -78,9 +79,15 @@ def update(tid: str, **fields) -> None:
 
 
 def claim_next_queued() -> dict | None:
-    """Atomically claim the oldest queued task (FIFO) -> running. Returns it or None."""
+    """Atomically claim the oldest queued task (FIFO) -> running, but ONLY if no
+    task is already running. Enforces global concurrency = 1 even if more than one
+    worker polls. Returns the claimed task or None."""
     with _conn() as c:
         c.execute("BEGIN IMMEDIATE")
+        running = c.execute("SELECT COUNT(*) FROM tasks WHERE status='running'").fetchone()[0]
+        if running:
+            c.execute("COMMIT")
+            return None
         r = c.execute(
             "SELECT * FROM tasks WHERE status='queued' ORDER BY created_at LIMIT 1"
         ).fetchone()
@@ -98,10 +105,51 @@ def claim_next_queued() -> dict | None:
     return d
 
 
-def list_tasks(limit: int = 100) -> list[dict]:
+def reclaim_stale() -> int:
+    """Requeue tasks left 'running' by a crashed/restarted worker. Safe for the
+    single-worker model (any 'running' at startup is orphaned). Returns count."""
     with _conn() as c:
-        rows = c.execute(
-            "SELECT id,status,stage,source_type,created_at,updated_at FROM tasks"
-            " ORDER BY created_at DESC LIMIT ?", (limit,)
-        ).fetchall()
+        cur = c.execute(
+            "UPDATE tasks SET status='queued', stage=NULL, updated_at=? WHERE status='running'",
+            (time.time(),),
+        )
+        return cur.rowcount
+
+
+def delete(tid: str) -> bool:
+    """Remove a task record and its files. Caller guards against deleting a
+    running task."""
+    if not get(tid):
+        return False
+    with _conn() as c:
+        c.execute("DELETE FROM tasks WHERE id=?", (tid,))
+    shutil.rmtree(task_dir(tid), ignore_errors=True)
+    return True
+
+
+def counts() -> dict:
+    with _conn() as c:
+        rows = c.execute("SELECT status, COUNT(*) FROM tasks GROUP BY status").fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+def running_task() -> dict | None:
+    with _conn() as c:
+        r = c.execute(
+            "SELECT * FROM tasks WHERE status='running' ORDER BY updated_at LIMIT 1"
+        ).fetchone()
+    if not r:
+        return None
+    d = dict(r)
+    d["options"] = json.loads(d.pop("options_json") or "{}")
+    return d
+
+
+def list_tasks(limit: int = 100, status: str | None = None) -> list[dict]:
+    q = ("SELECT id,status,stage,source_type,created_at,updated_at FROM tasks"
+         + (" WHERE status=?" if status else "")
+         + " ORDER BY created_at DESC LIMIT ?")
+    args = ((status, limit) if status else (limit,))
+    with _conn() as c:
+        rows = c.execute(q, args).fetchall()
     return [dict(r) for r in rows]

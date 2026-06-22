@@ -138,9 +138,19 @@ curl -OJ localhost:8088/v1/tasks/<task_id>/artifact
 
 Task options (form fields or JSON): `hotwords`, `speakers`, `reid`, `names`,
 `clip`, `name`. Status lifecycle: `queued → downloading → preprocessing →
-transcribing → postprocessing → done | failed`. Set `TTS_SERVE_API_KEY` to require
-`Authorization: Bearer <key>`. Endpoints: `POST /v1/tasks`, `GET /v1/tasks/{id}`,
-`GET /v1/tasks/{id}/artifact`, `GET /v1/tasks`, `GET /healthz`.
+transcribing → postprocessing → done | failed | cancelled`. **One task runs at a
+time** (single resident GPU worker, FIFO; the store enforces ≤1 `running`). Set
+`TTS_SERVE_API_KEY` to require `Authorization: Bearer <key>`.
+
+**Endpoints**
+- `POST /v1/tasks` — queue (upload or URL) → `{task_id}`
+- `GET /v1/tasks/{id}` — status/stage; `GET /v1/tasks` — recent
+- `GET /v1/tasks/{id}/artifact` — zip (200 done / 409 not-ready / 404)
+- `GET /v1/queue` — admin: what's running + the pending queue + counts
+- `DELETE /v1/tasks/{id}` — remove a queued/done/failed task (409 if running)
+- `POST /v1/tasks/{id}/retry` — requeue a failed/cancelled task
+- `GET /agent_info` — concise, agent-facing API guide; full spec at `/openapi.json` + `/docs`
+- `GET /healthz`
 
 ## Tests
 
