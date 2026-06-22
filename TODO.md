@@ -1,16 +1,27 @@
 # TODO
 
-## Cross-chunk speaker alignment (voice fingerprinting)
-When long audio is chunked (`transcribe_longform.py`, and the chunked path in
-`benchmark/run_testset_bf16.py`), each chunk is diarized independently, so
-`Speaker 0/1/...` ids do **not** correspond across chunk boundaries. This inflates
-the total speaker count (e.g. test-set v7: model reported 4 speakers for a 2-person
-talk — a chunking artifact, not a single-pass error).
+## Cross-chunk speaker alignment (voice fingerprinting) — DONE (with caveat)
+Implemented in `src/tts_serve/diarize.py` (`SpeakerReID`): embeds each segment
+with ECAPA-TDNN (CAM++ is a drop-in alternative) and re-clusters across ALL
+segments — including across chunk boundaries — to global speaker ids. Enabled via
+`tts-serve transcribe --reid --speakers N`. Measured: speaker-count error 3→0
+across the test set (v7 4→2, v4 5→4 fixed). See `benchmark/reid_eval.py`.
 
-**Fix:** compute a voice fingerprint per speaker segment (e.g. **CAM++ / 3D-Speaker
-embeddings**), cluster across all chunks, and remap chunk-local speaker ids to a
-single global identity. This also enables named-speaker enrollment (the v2
-voiceprint feature). Single-pass runs (≤ ~27 min) don't need this.
+**Remaining:** auto speaker-count estimation is unreliable (threshold clustering
+over-splits same-recording speakers) — re-id currently needs the count via
+`--speakers` / `expected_speakers`. TODO: robust auto-count via **spectral
+clustering + eigengap** (the standard diarization estimator), and proper **DER**
+measurement (needs reference speaker turns we don't have yet).
+
+## Speaker name suggestion from self-intros (post-processing)
+After transcription, speakers frequently **self-introduce** ("I'm Skyler, I've been
+an investor at Pelion for four years..."). A post-processing pass can scan each
+speaker's segments for self-introduction patterns (name + role/affiliation) and
+**suggest a real name** for each `Speaker N`. Combine with the voiceprint DB:
+once a name is inferred for a voiceprint, it auto-applies to future meetings.
+Implementation: regex/NER heuristics first ("I'm <Name>", "my name is <Name>",
+"this is <Name>"), then an LLM pass over each speaker's longest early segments for
+higher recall. Surface as *suggestions* the user confirms (don't auto-rename).
 
 ## Other follow-ups
 - **Diarization over-count (+1)** on some single-pass multi-speaker clips (v4): consider

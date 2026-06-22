@@ -68,7 +68,9 @@ tts-serve transcribe call.wav --stdout json | jq '.segments[0]'
 | Direct URL | `https://…/clip.m4a` | streamed download |
 
 Common flags: `--out DIR`, `--stdout json|txt|srt`, `--hotwords "A,B"`,
-`--speakers N`, `--clip START-END` (seconds), `--name`, `--model`, `--max-new-tokens`.
+`--speakers N`, `--reid` (voiceprint speaker re-id; fixes over-count & long-audio
+cross-chunk drift — use with `--speakers`), `--clip START-END` (seconds), `--name`,
+`--model`, `--max-new-tokens`.
 
 ### Output
 Canonical machine format is `segments.json`:

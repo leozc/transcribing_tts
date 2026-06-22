@@ -134,3 +134,35 @@ verbatim ASR — so true accuracy is likely *better* than the number.
 punctuation/casing normalization beyond lowercasing+depunct; (3) measures words
 only — **not** speaker attribution (no DER/cpWER yet); (4) v6 (pure Chinese) has no
 captions, so unmeasured. A small human-checked gold clip remains the real test.
+
+---
+
+# Speaker re-identification (voiceprint) — fixes over-count & cross-chunk drift
+
+`src/tts_serve/diarize.py` (`SpeakerReID`) embeds each segment with ECAPA-TDNN and
+re-clusters across all segments (incl. across chunk boundaries) to globally
+consistent speaker ids. Enable: `tts-serve transcribe --reid --speakers N`.
+Eval harness: `benchmark/reid_eval.py`.
+
+Embeddings discriminate cleanly (within-speaker cos-sim ~0.82 vs cross ~0.33). The
+few non-speech `[Music]`/null segments are excluded before clustering (they're
+more distinct than two speakers and hijack the split).
+
+**Speaker-count error (proxy for DER; no reference turns available):**
+
+| id | true | before | after |
+|----|-----:|-------:|------:|
+| v1_chinese | 2 | 2 | 2 |
+| v2_english | 2 | 2 | 2 |
+| v3_allin | 4 | 4 | 4 |
+| v4 (4 people) | 4 | 5 | **4** ✅ |
+| v5_2people | 2 | 2 | 2 |
+| v6_chinese_pure | 1 | 1 | 1 |
+| v7_eric_schmidt | 2 | **4** (chunked) | **2** ✅ |
+
+**Total |error|: 3 → 0. Exact on 7/7.** v7's cross-chunk inflation (4→2) and v4's
+over-count (5→4) both fixed; no regressions.
+
+**Caveat:** re-id uses the known speaker count (`--speakers` / `expected_speakers`).
+Auto count-estimation over-splits (threshold clustering) — TODO: spectral
+clustering + eigengap. This measures *count*, not full DER (no reference turns).

@@ -22,6 +22,8 @@ tts-serve = "tts_serve.cli:main"
 [project.optional-dependencies]
 s3 = ["boto3"]
 gdrive = ["gdown", "google-api-python-client", "google-auth"]
+diarize = ["speechbrain", "scikit-learn", "torchaudio"]   # voiceprint speaker re-id
+eval = ["jiwer"]                                            # WER/CER accuracy harness
 
 [tool.setuptools.packages.find]
 where = ["src"]
