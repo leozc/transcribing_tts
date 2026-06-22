@@ -1,13 +1,17 @@
 """FastAPI front end: queue a transcription, poll it, download the artifact zip.
 
-    POST /v1/tasks         multipart file=@audio  OR  json {"source": "<url>", ...opts}
-    GET  /v1/tasks/{id}    status / stage / error
-    GET  /v1/tasks/{id}/artifact   zip of results (200 done / 409 not-ready / 404)
-    GET  /v1/tasks         recent tasks
-    GET  /healthz
+    POST /v1/tasks          JSON {source, ...options}              -> TaskRef
+    POST /v1/tasks/upload   multipart file=@audio + form options   -> TaskRef
+    GET  /v1/tasks/{id}                                            -> TaskStatus
+    GET  /v1/tasks/{id}/artifact   zip (200 done / 409 / 404)
+    GET  /v1/tasks          recent                                 -> TaskList
+    GET  /v1/queue          running + pending + counts             -> QueueStatus
+    DELETE /v1/tasks/{id}   remove queued/done/failed (409 running)-> DeleteResult
+    POST /v1/tasks/{id}/retry  requeue failed/cancelled            -> TaskRef
+    GET  /agent_info        agent-facing guide ; GET /healthz ; /openapi.json ; /docs
 
-Optional bearer auth: set env TTS_SERVE_API_KEY to require Authorization: Bearer <key>.
-The GPU worker (service/worker.py) does the actual transcription.
+Typed via Pydantic so /openapi.json yields a real typed client. The GPU worker
+(service/worker.py) does the transcription. Optional bearer auth via TTS_SERVE_API_KEY.
 """
 from __future__ import annotations
 
@@ -16,15 +20,19 @@ import os
 import zipfile
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from tts_serve.service import store
+from tts_serve.service.models import (
+    CreateTaskRequest, DeleteResult, Health, QueuedItem, QueueStatus,
+    RunningInfo, TaskList, TaskRef, TaskStatus,
+)
 
-_OPT_KEYS = ("hotwords", "speakers", "reid", "names", "clip", "name")
 _AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".opus", ".mp4", ".webm", ".mov", ".mkv", ".aac"}
 
-app = FastAPI(title="tts_serve", version="0.1.0")
+app = FastAPI(title="tts_serve", version="0.1.0",
+              description="Self-hosted meeting transcription — queue / poll / artifact.")
 
 
 @app.on_event("startup")
@@ -34,86 +42,101 @@ def _startup() -> None:
 
 async def _auth(request: Request) -> None:
     key = os.environ.get("TTS_SERVE_API_KEY")
-    if not key:
-        return
-    auth = request.headers.get("authorization", "")
-    if auth != f"Bearer {key}":
+    if key and request.headers.get("authorization", "") != f"Bearer {key}":
         raise HTTPException(401, "missing/invalid bearer token")
 
 
-def _coerce_opts(raw: dict) -> dict:
-    opts = {}
-    for k in _OPT_KEYS:
-        if k not in raw or raw[k] in (None, ""):
-            continue
-        v = raw[k]
-        if k == "speakers":
-            v = int(v)
-        elif k in ("reid", "names"):
-            v = str(v).lower() in ("1", "true", "yes", "on") if not isinstance(v, bool) else v
-        opts[k] = v
-    return opts
+def _save_upload(filename: str, data: bytes, opts: dict) -> str:
+    ext = Path(filename or "").suffix.lower()
+    if ext not in _AUDIO_EXTS:
+        ext = ".bin"
+    tid = store.create("", "file", opts)
+    dst = store.task_dir(tid) / f"input{ext}"
+    dst.write_bytes(data)
+    store.update(tid, source=str(dst))
+    return tid
 
 
-@app.get("/healthz")
-def healthz() -> dict:
-    return {"ok": True}
+@app.get("/healthz", response_model=Health)
+def healthz() -> Health:
+    return Health(ok=True)
 
 
-@app.post("/v1/tasks")
-async def create_task(request: Request, _=Depends(_auth)) -> dict:
-    ct = request.headers.get("content-type", "")
-    if ct.startswith("multipart/"):
-        form = await request.form()
-        opts = _coerce_opts({k: form.get(k) for k in _OPT_KEYS})
-        upload = form.get("file")
-        source_field = form.get("source")
-        # duck-type: form may yield starlette's UploadFile (not the fastapi subclass)
-        if upload is not None and hasattr(upload, "read") and getattr(upload, "filename", None):
-            ext = Path(upload.filename).suffix.lower() or ".bin"
-            if ext not in _AUDIO_EXTS:
-                ext = ".bin"
-            tid = store.create("", "file", opts)
-            dst = store.task_dir(tid) / f"input{ext}"
-            dst.write_bytes(await upload.read())
-            store.update(tid, source=str(dst))
-            return {"task_id": tid, "status": "queued"}
-        if source_field:
-            return _create_url(str(source_field), opts)
-        raise HTTPException(400, "provide a 'file' upload or a 'source' URL")
-    # JSON body
-    body = await request.json()
-    source = body.get("source")
-    if not source:
-        raise HTTPException(400, "json body needs 'source' (use multipart to upload a file)")
-    return _create_url(str(source), _coerce_opts(body))
-
-
-def _create_url(source: str, opts: dict) -> dict:
+@app.post("/v1/tasks", response_model=TaskRef)
+def create_task(req: CreateTaskRequest, _=Depends(_auth)) -> TaskRef:
     from tts_serve.sources import classify
-    tid = store.create(source, classify(source), opts)
-    return {"task_id": tid, "status": "queued"}
+    tid = store.create(req.source, classify(req.source), req.options())
+    return TaskRef(task_id=tid, status="queued")
 
 
-@app.get("/v1/tasks/{tid}")
-def get_task(tid: str, _=Depends(_auth)) -> dict:
+@app.post("/v1/tasks/upload", response_model=TaskRef)
+async def upload_task(
+    file: UploadFile = File(...),
+    hotwords: str | None = Form(None),
+    speakers: int | None = Form(None),
+    reid: bool = Form(False),
+    names: bool = Form(False),
+    clip: str | None = Form(None),
+    name: str | None = Form(None),
+    _=Depends(_auth),
+) -> TaskRef:
+    req = CreateTaskRequest(source="upload", hotwords=hotwords, speakers=speakers,
+                            reid=reid, names=names, clip=clip, name=name)
+    tid = _save_upload(file.filename, await file.read(), req.options())
+    return TaskRef(task_id=tid, status="queued")
+
+
+@app.get("/v1/tasks/{tid}", response_model=TaskStatus)
+def get_task(tid: str, _=Depends(_auth)) -> TaskStatus:
     t = store.get(tid)
     if not t:
         raise HTTPException(404, "unknown task id")
-    return {
-        "task_id": t["id"], "status": t["status"], "stage": t["stage"],
-        "source_type": t["source_type"], "error": t["error"],
-        "created_at": t["created_at"], "updated_at": t["updated_at"],
-        "options": t["options"],
-    }
+    return TaskStatus(task_id=t["id"], status=t["status"], stage=t["stage"],
+                      source_type=t["source_type"], error=t["error"],
+                      created_at=t["created_at"], updated_at=t["updated_at"],
+                      options=t["options"])
 
 
-@app.get("/v1/tasks")
-def list_tasks(_=Depends(_auth)) -> dict:
-    return {"tasks": store.list_tasks()}
+@app.get("/v1/tasks", response_model=TaskList)
+def list_tasks(_=Depends(_auth)) -> TaskList:
+    return TaskList(tasks=[QueuedItem(**r) for r in store.list_tasks()])
 
 
-@app.get("/v1/tasks/{tid}/artifact")
+@app.get("/v1/queue", response_model=QueueStatus)
+def queue(_=Depends(_auth)) -> QueueStatus:
+    r = store.running_task()
+    return QueueStatus(
+        running=RunningInfo(task_id=r["id"], stage=r["stage"],
+                            source_type=r["source_type"], updated_at=r["updated_at"]) if r else None,
+        queued=[QueuedItem(**q) for q in store.list_tasks(status="queued")],
+        counts=store.counts(),
+    )
+
+
+@app.delete("/v1/tasks/{tid}", response_model=DeleteResult)
+def delete_task(tid: str, _=Depends(_auth)) -> DeleteResult:
+    t = store.get(tid)
+    if not t:
+        raise HTTPException(404, "unknown task id")
+    if t["status"] == "running":
+        raise HTTPException(409, "cannot remove a running task")
+    store.delete(tid)
+    return DeleteResult(deleted=tid, was=t["status"])
+
+
+@app.post("/v1/tasks/{tid}/retry", response_model=TaskRef)
+def retry_task(tid: str, _=Depends(_auth)) -> TaskRef:
+    t = store.get(tid)
+    if not t:
+        raise HTTPException(404, "unknown task id")
+    if t["status"] not in ("failed", "cancelled"):
+        raise HTTPException(409, f"can only retry failed/cancelled (status={t['status']})")
+    store.update(tid, status="queued", stage=None, error=None)
+    return TaskRef(task_id=tid, status="queued")
+
+
+@app.get("/v1/tasks/{tid}/artifact",
+         responses={200: {"content": {"application/zip": {}}}, 409: {}, 404: {}})
 def get_artifact(tid: str, _=Depends(_auth)):
     t = store.get(tid)
     if not t:
@@ -129,71 +152,27 @@ def get_artifact(tid: str, _=Depends(_auth)):
         for p in files:
             z.write(p, arcname=p.name)
     buf.seek(0)
-    return StreamingResponse(
-        buf, media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{tid}.zip"'},
-    )
-
-
-@app.get("/v1/queue")
-def queue(_=Depends(_auth)) -> dict:
-    """Admin: what's running now + the pending queue + status counts."""
-    running = store.running_task()
-    return {
-        "running": {"task_id": running["id"], "stage": running["stage"],
-                    "source_type": running["source_type"], "updated_at": running["updated_at"]}
-        if running else None,
-        "queued": store.list_tasks(status="queued"),
-        "counts": store.counts(),
-    }
-
-
-@app.delete("/v1/tasks/{tid}")
-def delete_task(tid: str, _=Depends(_auth)) -> dict:
-    """Admin: remove a task (cancel a queued one / clean up done/failed). A
-    running task can't be removed mid-flight (409)."""
-    t = store.get(tid)
-    if not t:
-        raise HTTPException(404, "unknown task id")
-    if t["status"] == "running":
-        raise HTTPException(409, "cannot remove a running task")
-    store.delete(tid)
-    return {"deleted": tid, "was": t["status"]}
-
-
-@app.post("/v1/tasks/{tid}/retry")
-def retry_task(tid: str, _=Depends(_auth)) -> dict:
-    """Admin: requeue a failed/cancelled task."""
-    t = store.get(tid)
-    if not t:
-        raise HTTPException(404, "unknown task id")
-    if t["status"] not in ("failed", "cancelled"):
-        raise HTTPException(409, f"can only retry failed/cancelled (status={t['status']})")
-    store.update(tid, status="queued", stage=None, error=None)
-    return {"task_id": tid, "status": "queued"}
+    return StreamingResponse(buf, media_type="application/zip",
+                             headers={"Content-Disposition": f'attachment; filename="{tid}.zip"'})
 
 
 @app.get("/agent_info")
 def agent_info() -> dict:
-    """Concise, agent-facing description of how to drive this API.
-    (For the full machine spec see /openapi.json and the Swagger UI at /docs.)"""
+    """Concise, agent-facing guide. Full machine spec: /openapi.json and /docs."""
     return {
         "service": "tts_serve",
-        "summary": "Transcribe audio/video (file, YouTube, Google Drive, S3, or URL) into a "
-                   "speaker-attributed, timestamped transcript. Async: queue a task, poll it, "
+        "summary": "Transcribe audio/video (file, YouTube, Google Drive, S3, URL) into a "
+                   "speaker-attributed, timestamped transcript. Async: queue a task, poll, "
                    "download a zip of artifacts.",
         "workflow": [
-            "1. POST /v1/tasks with a file upload OR a source URL -> {task_id}",
-            "2. GET /v1/tasks/{task_id} and poll the 'status' field until it is 'done' "
-            "(stop also on 'failed' / 'cancelled'); the 'stage' field shows fine-grained "
-            "progress while status == 'running'",
+            "1. POST /v1/tasks (JSON {source}) for a URL, or POST /v1/tasks/upload (multipart file) -> {task_id}",
+            "2. GET /v1/tasks/{task_id}; poll the 'status' field until 'done' (stop on 'failed'/'cancelled'); "
+            "'stage' shows progress while status=='running'",
             "3. GET /v1/tasks/{task_id}/artifact -> zip (transcript.txt, subtitle.srt, segments.json, meta.json)",
         ],
         "concurrency": "One task runs at a time (single resident GPU worker, FIFO queue).",
         "status_values": ["queued", "running", "done", "failed", "cancelled"],
         "stage_values": ["downloading", "preprocessing", "transcribing", "postprocessing", "done"],
-        "polling": "Poll the 'status' field (terminal: done/failed/cancelled). 'stage' is "
-                   "informational progress within 'running'.",
         "task_options": {
             "hotwords": "comma-separated names/terms to bias ASR",
             "speakers": "int, expected speaker count (improves diarization / re-id)",
@@ -203,19 +182,16 @@ def agent_info() -> dict:
             "name": "meeting name (default derived from source)",
         },
         "endpoints": [
-            {"method": "POST", "path": "/v1/tasks",
-             "body": "multipart form with file=@audio + option fields, OR JSON {source, ...options}",
-             "returns": "{task_id, status}",
-             "examples": [
-                 "curl -F file=@meeting.wav -F speakers=2 -F reid=true <base>/v1/tasks",
-                 "curl -H 'content-type: application/json' -d '{\"source\":\"https://youtu.be/ID\",\"names\":true}' <base>/v1/tasks",
-             ]},
-            {"method": "GET", "path": "/v1/tasks/{id}", "returns": "{status, stage, error, ...}"},
-            {"method": "GET", "path": "/v1/tasks/{id}/artifact", "returns": "application/zip (200 done / 409 not-ready / 404)"},
-            {"method": "GET", "path": "/v1/tasks", "returns": "recent tasks"},
-            {"method": "GET", "path": "/v1/queue", "returns": "{running, queued[], counts}"},
-            {"method": "DELETE", "path": "/v1/tasks/{id}", "returns": "remove a queued/done/failed task (409 if running)"},
-            {"method": "POST", "path": "/v1/tasks/{id}/retry", "returns": "requeue a failed/cancelled task"},
+            {"method": "POST", "path": "/v1/tasks", "body": "JSON CreateTaskRequest {source, ...options}",
+             "example": "curl -H 'content-type: application/json' -d '{\"source\":\"https://youtu.be/ID\",\"clip\":\"0-600\",\"names\":true}' <base>/v1/tasks"},
+            {"method": "POST", "path": "/v1/tasks/upload", "body": "multipart file=@audio + option form fields",
+             "example": "curl -F file=@meeting.wav -F speakers=2 -F reid=true <base>/v1/tasks/upload"},
+            {"method": "GET", "path": "/v1/tasks/{id}", "returns": "TaskStatus"},
+            {"method": "GET", "path": "/v1/tasks/{id}/artifact", "returns": "application/zip (200/409/404)"},
+            {"method": "GET", "path": "/v1/tasks", "returns": "TaskList"},
+            {"method": "GET", "path": "/v1/queue", "returns": "QueueStatus {running, queued[], counts}"},
+            {"method": "DELETE", "path": "/v1/tasks/{id}", "returns": "remove queued/done/failed (409 if running)"},
+            {"method": "POST", "path": "/v1/tasks/{id}/retry", "returns": "requeue failed/cancelled"},
         ],
         "auth": "If TTS_SERVE_API_KEY is set, send 'Authorization: Bearer <key>'.",
         "spec": {"openapi": "/openapi.json", "swagger_ui": "/docs"},

@@ -93,17 +93,19 @@ def test_create_via_url_and_status(svc):
 
 def test_create_via_upload(svc):
     store, _, client = svc
-    r = client.post("/v1/tasks", files={"file": ("meeting.wav", b"RIFFxxxx", "audio/wav")})
+    r = client.post("/v1/tasks/upload",
+                    files={"file": ("meeting.wav", b"RIFFxxxx", "audio/wav")},
+                    data={"speakers": "2", "reid": "true"})
     assert r.status_code == 200
     tid = r.json()["task_id"]
     t = store.get(tid)
-    assert t["source_type"] == "file"
-    assert t["source"].endswith("input.wav")
+    assert t["source_type"] == "file" and t["source"].endswith("input.wav")
+    assert t["options"]["speakers"] == 2 and t["options"]["reid"] is True
 
 
-def test_create_requires_input(svc):
+def test_create_requires_source(svc):
     _, _, client = svc
-    assert client.post("/v1/tasks", json={}).status_code == 400
+    assert client.post("/v1/tasks", json={}).status_code == 422  # pydantic: source required
 
 
 def test_unknown_task_404(svc):

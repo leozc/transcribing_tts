@@ -121,10 +121,10 @@ TTS_SERVE_PORT=8088 tts-serve-api        # FastAPI on :8088
 ```
 
 ```bash
-# queue an upload  -> {"task_id": "...", "status": "queued"}
-curl -F file=@meeting.wav -F speakers=2 -F reid=true localhost:8088/v1/tasks
+# queue a file upload (multipart) -> {"task_id": "...", "status": "queued"}
+curl -F file=@meeting.wav -F speakers=2 -F reid=true localhost:8088/v1/tasks/upload
 
-# queue a URL (YouTube / Google Drive / S3 / http)
+# queue a URL (YouTube / Google Drive / S3 / http) — JSON
 curl -H 'content-type: application/json' \
      -d '{"source":"https://youtu.be/<id>","clip":"0-600","names":true}' \
      localhost:8088/v1/tasks
@@ -142,8 +142,12 @@ transcribing → postprocessing → done | failed | cancelled`. **One task runs 
 time** (single resident GPU worker, FIFO; the store enforces ≤1 `running`). Set
 `TTS_SERVE_API_KEY` to require `Authorization: Bearer <key>`.
 
+All endpoints are typed (Pydantic) → `/openapi.json` (OpenAPI 3.1) yields a typed
+generated client via `openapi-generator-cli` / `openapi-python-client` / `openapi-typescript`.
+
 **Endpoints**
-- `POST /v1/tasks` — queue (upload or URL) → `{task_id}`
+- `POST /v1/tasks` — queue a URL (JSON `{source, ...opts}`) → `{task_id}`
+- `POST /v1/tasks/upload` — queue a file (multipart `file=@audio` + opts) → `{task_id}`
 - `GET /v1/tasks/{id}` — status/stage; `GET /v1/tasks` — recent
 - `GET /v1/tasks/{id}/artifact` — zip (200 done / 409 not-ready / 404)
 - `GET /v1/queue` — admin: what's running + the pending queue + counts
