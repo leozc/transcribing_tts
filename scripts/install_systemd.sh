@@ -49,6 +49,9 @@ WorkingDirectory=$REPO
 Environment=TTS_SERVE_DATA=$DATA
 Environment=TTS_SERVE_LOG_LEVEL=INFO
 Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# On-demand GPU: load the model on the first task, free VRAM after this many idle
+# seconds (0 = keep resident). 600s = reclaim the GPU ~10min after the last job.
+Environment=TTS_SERVE_IDLE_UNLOAD=600
 EnvironmentFile=-$REPO/.env_service
 ExecStart=$REPO/.venv/bin/tts-serve-worker
 Restart=on-failure

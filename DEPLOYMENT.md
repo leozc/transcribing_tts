@@ -21,8 +21,9 @@ barebone goal.
 - **API** (`tts-serve-api`): light, no GPU, stateless except the shared DB/FS. Enqueues
   tasks and serves status/artifacts. Safe to run **N replicas** behind a reverse proxy
   (they all share the same SQLite + `data/`).
-- **Worker** (`tts-serve-worker`): exactly **one** process. Owns the GPU and the resident
-  model; drains the FIFO queue. **Global concurrency = 1** is enforced in the store
+- **Worker** (`tts-serve-worker`): exactly **one** process. Owns the GPU and the model
+  (resident or on-demand — see *Model allocation*); drains the FIFO queue. **Global
+  concurrency = 1** is enforced in the store
   (`claim_next_queued` only claims when no task is `running`), so even an accidental
   second worker can't run two tasks at once.
 - **Shared state**: `data/tasks.db` (WAL = concurrent API reads + worker writes) and
@@ -74,6 +75,26 @@ systemctl --user status tts-api tts-worker
 Secrets/config (optional): put `DEEPSEEK_API_KEY=…`, `AWS_*`, `YT_COOKIES=…`,
 `TTS_SERVE_API_KEY=…` in `./.env_service` (gitignored; read via `EnvironmentFile=-`).
 Stop/remove: `systemctl --user disable --now tts-worker tts-api` (this frees the GPU).
+
+## Model allocation (GPU) — resident vs on-demand
+The worker can keep the model **resident** (loaded at startup, hot forever) or load it
+**on demand** and free the GPU when idle — set `TTS_SERVE_IDLE_UNLOAD` (seconds; `0` =
+resident):
+
+| | resident (`=0`) | on-demand (`=600`, the unit default) |
+|---|---|---|
+| VRAM when idle | ~17 GB pinned 24/7 | freed (only ~0.5 GB CUDA context remains) |
+| first-task latency | ~0 (always hot) | + model load (≈4 s warm / page-cached, longer cold) |
+| best for | a **dedicated** GPU box | a **shared** GPU (reclaim it between bursts) |
+
+This is async, latency-tolerant batch work (~10×1 h meetings/day ≈ ~75 min GPU/day),
+so the cold-start cost is negligible and on-demand is the default here. The worker loads
+the model on the first queued task (status shows `stage=loading_model`), processes the
+FIFO queue, and after `TTS_SERVE_IDLE_UNLOAD` seconds with an empty queue it drops the
+model and calls `empty_cache()` — freeing the ~17 GB of weights. A small CUDA context
+(~hundreds of MB) lingers until the process exits; if you need the GPU **100%** free,
+recycle the worker process on idle instead (a follow-up). Verified on this host: idle
+GPU **1 MiB** → task loads the model → idle-unload returns it to **~518 MiB**.
 
 ## Logging (for debugging)
 Both processes use `service/logconf.py`: component-tagged, leveled lines to **stdout**

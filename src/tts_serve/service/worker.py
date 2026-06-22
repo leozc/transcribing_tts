@@ -64,19 +64,47 @@ def _process(asr, task: dict) -> None:
     log.info("task %s DONE: %d segs, speakers=%s", tid, doc["n_segments"], doc["speakers"])
 
 
+def _load_model():
+    from tts_serve.asr import VibeVoiceASR
+    asr = VibeVoiceASR()
+    log.info("model loaded in %.1fs", asr.load_seconds)
+    return asr
+
+
+def _free_gpu() -> None:
+    """Release the model's GPU memory back to the driver. The ~17GB of weights are
+    freed; a small CUDA context (~hundreds of MB) remains until the process exits."""
+    import gc
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+    except Exception:  # noqa: BLE001 — torch may be absent in a no-GPU dev box
+        pass
+
+
 def main() -> None:
     store.init()
-    log.info("worker starting | data=%s db=%s", store.DATA, store.DB)
+    idle_unload = float(os.environ.get("TTS_SERVE_IDLE_UNLOAD", "0"))  # 0 = resident
+    poll = float(os.environ.get("TTS_SERVE_POLL", "1.0"))
+    retention = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
+    mode = f"on-demand (free GPU after {idle_unload:.0f}s idle)" if idle_unload > 0 else "resident"
+    log.info("worker starting | data=%s db=%s | model=%s", store.DATA, store.DB, mode)
     reclaimed = store.reclaim_stale()  # requeue tasks orphaned by a previous crash
     if reclaimed:
         log.warning("re-queued %d stale running task(s) from a previous crash", reclaimed)
-    log.info("loading VibeVoice-ASR (resident)...")
-    from tts_serve.asr import VibeVoiceASR
-    asr = VibeVoiceASR()
-    log.info("model ready in %.1fs; polling queue", asr.load_seconds)
-    poll = float(os.environ.get("TTS_SERVE_POLL", "1.0"))
-    retention = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
+
+    asr = None
+    if idle_unload <= 0:
+        asr = _load_model()  # resident: keep the model hot from startup
+    else:
+        log.info("model loads on first task; GPU stays free while the queue is empty")
+    log.info("polling queue")
+
     last_maint = 0.0
+    last_active = time.monotonic()
     while True:
         # lifecycle maintenance roughly hourly (purge old terminal tasks + WAL checkpoint)
         if time.time() - last_maint > 3600:
@@ -84,18 +112,32 @@ def main() -> None:
             if n:
                 log.info("purged %d old task(s) (retention=%.0fd)", n, retention)
             last_maint = time.time()
+
         task = store.claim_next_queued()
         if not task:
+            # on-demand: free the GPU once we've been idle past the threshold
+            idle_for = time.monotonic() - last_active
+            if asr is not None and idle_unload > 0 and idle_for > idle_unload:
+                log.info("idle %.0fs > %.0fs: unloading model to free the GPU", idle_for, idle_unload)
+                asr = None
+                _free_gpu()
+                log.info("model unloaded; GPU memory released (CUDA context may persist)")
             time.sleep(poll)
             continue
+
         log.info("claimed %s (client=%s type=%s)", task["id"], task.get("client_id"), task["source_type"])
         t0 = time.monotonic()
         try:
+            if asr is None:  # on-demand cold start: load before processing
+                store.update(task["id"], stage="loading_model")
+                log.info("loading model on demand for task %s ...", task["id"])
+                asr = _load_model()
             _process(asr, task)
             log.info("task %s finished in %.1fs", task["id"], time.monotonic() - t0)
         except Exception as e:  # noqa: BLE001
             store.update(task["id"], status="failed", error=str(e))
             log.error("task %s FAILED after %.1fs: %s", task["id"], time.monotonic() - t0, e, exc_info=True)
+        last_active = time.monotonic()
 
 
 if __name__ == "__main__":

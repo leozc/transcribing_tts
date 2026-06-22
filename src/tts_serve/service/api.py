@@ -287,7 +287,7 @@ def agent_info() -> dict:
                     "(X-Task-Token / ?token=, for sharing one task). Fails closed otherwise.",
         "concurrency": "One task runs at a time (single resident GPU worker, FIFO queue).",
         "status_values": ["queued", "running", "done", "failed", "cancelled"],
-        "stage_values": ["downloading", "preprocessing", "transcribing", "postprocessing", "done"],
+        "stage_values": ["loading_model", "downloading", "preprocessing", "transcribing", "postprocessing", "done"],
         "task_options": {
             "hotwords": "comma-separated names/terms to bias ASR",
             "speakers": "int, expected speaker count (improves diarization / re-id)",
