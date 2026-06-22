@@ -2,6 +2,8 @@
 
 from .agent_info_agent_info_get_response_agent_info_agent_info_get import AgentInfoAgentInfoGetResponseAgentInfoAgentInfoGet
 from .body_upload_task_v1_tasks_upload_post import BodyUploadTaskV1TasksUploadPost
+from .client_create import ClientCreate
+from .client_credentials import ClientCredentials
 from .create_task_request import CreateTaskRequest
 from .delete_result import DeleteResult
 from .health import Health
@@ -20,6 +22,8 @@ from .validation_error_context import ValidationErrorContext
 __all__ = (
     "AgentInfoAgentInfoGetResponseAgentInfoAgentInfoGet",
     "BodyUploadTaskV1TasksUploadPost",
+    "ClientCreate",
+    "ClientCredentials",
     "CreateTaskRequest",
     "DeleteResult",
     "Health",

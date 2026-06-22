@@ -20,11 +20,15 @@ def _get_kwargs(
     *,
     token: None | str | Unset = UNSET,
     x_task_token: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(x_task_token, Unset):
         headers["x-task-token"] = x_task_token
+
+    if not isinstance(x_client_key, Unset):
+        headers["x-client-key"] = x_client_key
 
 
 
@@ -91,6 +95,7 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     token: None | str | Unset = UNSET,
     x_task_token: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> Response[DeleteResult | HTTPValidationError]:
     """ Delete Task
@@ -99,6 +104,7 @@ def sync_detailed(
         tid (str):
         token (None | str | Unset):
         x_task_token (None | str | Unset):
+        x_client_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -113,6 +119,7 @@ def sync_detailed(
         tid=tid,
 token=token,
 x_task_token=x_task_token,
+x_client_key=x_client_key,
 
     )
 
@@ -128,6 +135,7 @@ def sync(
     client: AuthenticatedClient | Client,
     token: None | str | Unset = UNSET,
     x_task_token: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> DeleteResult | HTTPValidationError | None:
     """ Delete Task
@@ -136,6 +144,7 @@ def sync(
         tid (str):
         token (None | str | Unset):
         x_task_token (None | str | Unset):
+        x_client_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -151,6 +160,7 @@ def sync(
 client=client,
 token=token,
 x_task_token=x_task_token,
+x_client_key=x_client_key,
 
     ).parsed
 
@@ -160,6 +170,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     token: None | str | Unset = UNSET,
     x_task_token: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> Response[DeleteResult | HTTPValidationError]:
     """ Delete Task
@@ -168,6 +179,7 @@ async def asyncio_detailed(
         tid (str):
         token (None | str | Unset):
         x_task_token (None | str | Unset):
+        x_client_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -182,6 +194,7 @@ async def asyncio_detailed(
         tid=tid,
 token=token,
 x_task_token=x_task_token,
+x_client_key=x_client_key,
 
     )
 
@@ -197,6 +210,7 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     token: None | str | Unset = UNSET,
     x_task_token: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> DeleteResult | HTTPValidationError | None:
     """ Delete Task
@@ -205,6 +219,7 @@ async def asyncio(
         tid (str):
         token (None | str | Unset):
         x_task_token (None | str | Unset):
+        x_client_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -220,5 +235,6 @@ async def asyncio(
 client=client,
 token=token,
 x_task_token=x_task_token,
+x_client_key=x_client_key,
 
     )).parsed

@@ -21,6 +21,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Client
+         * @description Register a client_id and receive a secret client_key (shown ONCE). Send the
+         *     key as 'X-Client-Key' to enqueue tasks and to list/fetch your own tasks. The
+         *     client_id is first-come-first-served; 409 if already taken.
+         */
+        post: operations["register_client_v1_clients_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tasks": {
         parameters: {
             query?: never;
@@ -173,6 +195,18 @@ export interface components {
             clip?: string | null;
             /** Name */
             name?: string | null;
+        };
+        /** ClientCreate */
+        ClientCreate: {
+            /** Client Id */
+            client_id: string;
+        };
+        /** ClientCredentials */
+        ClientCredentials: {
+            /** Client Id */
+            client_id: string;
+            /** Client Key */
+            client_key: string;
         };
         /** CreateTaskRequest */
         CreateTaskRequest: {
@@ -345,12 +379,47 @@ export interface operations {
             };
         };
     };
+    register_client_v1_clients_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientCredentials"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_tasks_v1_tasks_get: {
         parameters: {
             query?: {
                 client_id?: string | null;
             };
-            header?: never;
+            header?: {
+                "x-client-key"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -379,7 +448,9 @@ export interface operations {
     create_task_v1_tasks_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-client-key"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -412,7 +483,9 @@ export interface operations {
     upload_task_v1_tasks_upload_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-client-key"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -449,6 +522,7 @@ export interface operations {
             };
             header?: {
                 "x-task-token"?: string | null;
+                "x-client-key"?: string | null;
             };
             path: {
                 tid: string;
@@ -484,6 +558,7 @@ export interface operations {
             };
             header?: {
                 "x-task-token"?: string | null;
+                "x-client-key"?: string | null;
             };
             path: {
                 tid: string;
@@ -539,6 +614,7 @@ export interface operations {
             };
             header?: {
                 "x-task-token"?: string | null;
+                "x-client-key"?: string | null;
             };
             path: {
                 tid: string;
@@ -574,6 +650,7 @@ export interface operations {
             };
             header?: {
                 "x-task-token"?: string | null;
+                "x-client-key"?: string | null;
             };
             path: {
                 tid: string;

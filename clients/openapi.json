@@ -24,10 +24,67 @@
         }
       }
     },
+    "/v1/clients": {
+      "post": {
+        "summary": "Register Client",
+        "description": "Register a client_id and receive a secret client_key (shown ONCE). Send the\nkey as 'X-Client-Key' to enqueue tasks and to list/fetch your own tasks. The\nclient_id is first-come-first-served; 409 if already taken.",
+        "operationId": "register_client_v1_clients_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientCredentials"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tasks": {
       "post": {
         "summary": "Create Task",
         "operationId": "create_task_v1_tasks_post",
+        "parameters": [
+          {
+            "name": "x-client-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Client-Key"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -80,6 +137,22 @@
               ],
               "title": "Client Id"
             }
+          },
+          {
+            "name": "x-client-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Client-Key"
+            }
           }
         ],
         "responses": {
@@ -110,15 +183,33 @@
       "post": {
         "summary": "Upload Task",
         "operationId": "upload_task_v1_tasks_upload_post",
+        "parameters": [
+          {
+            "name": "x-client-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Client-Key"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/Body_upload_task_v1_tasks_upload_post"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -189,6 +280,22 @@
               ],
               "title": "X-Task-Token"
             }
+          },
+          {
+            "name": "x-client-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Client-Key"
+            }
           }
         ],
         "responses": {
@@ -257,6 +364,22 @@
                 }
               ],
               "title": "X-Task-Token"
+            }
+          },
+          {
+            "name": "x-client-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Client-Key"
             }
           }
         ],
@@ -347,6 +470,22 @@
               ],
               "title": "X-Task-Token"
             }
+          },
+          {
+            "name": "x-client-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Client-Key"
+            }
           }
         ],
         "responses": {
@@ -417,6 +556,22 @@
                 }
               ],
               "title": "X-Task-Token"
+            }
+          },
+          {
+            "name": "x-client-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Client-Key"
             }
           }
         ],
@@ -545,6 +700,38 @@
           "client_id"
         ],
         "title": "Body_upload_task_v1_tasks_upload_post"
+      },
+      "ClientCreate": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Client Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id"
+        ],
+        "title": "ClientCreate"
+      },
+      "ClientCredentials": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "client_key": {
+            "type": "string",
+            "title": "Client Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "client_key"
+        ],
+        "title": "ClientCredentials"
       },
       "CreateTaskRequest": {
         "properties": {

@@ -129,22 +129,30 @@ tts-serve-worker &                       # resident GPU worker (loads model once
 TTS_SERVE_PORT=8088 tts-serve-api        # FastAPI on :8088
 ```
 
-`client_id` is **required** at enqueue and records **who** queued (attribution).
-Create returns a per-task **`pull_token`** — the unguessable capability you must
-present (header `X-Task-Token` or `?token=`) to poll / download / delete / retry.
-(`client_id` is *not* a credential — it can't be used to access a task.)
+**Register once** to get a secret **`client_key`**. Send it as `X-Client-Key` to
+enqueue and to **list your own jobs** — it's your authenticated identity (the body
+`client_id` is just a label that must match it). Create also returns a per-task
+**`pull_token`** — an unguessable capability that reaches that one task (header
+`X-Task-Token` or `?token=`), handy for sharing a single result.
 
 ```bash
+# 0. register -> {"client_id","client_key"}  (client_key shown once — SAVE IT)
+curl -H 'content-type: application/json' -d '{"client_id":"alice"}' localhost:8088/v1/clients
+
 # queue a file upload (multipart) -> {"task_id", "status", "pull_token"}
-curl -F file=@meeting.wav -F client_id=alice -F speakers=2 localhost:8088/v1/tasks/upload
+curl -H 'X-Client-Key: <client_key>' \
+     -F file=@meeting.wav -F client_id=alice -F speakers=2 localhost:8088/v1/tasks/upload
 
 # queue a URL (YouTube / Bilibili / Google Drive / S3 / http) — JSON
-curl -H 'content-type: application/json' \
+curl -H 'content-type: application/json' -H 'X-Client-Key: <client_key>' \
      -d '{"source":"https://youtu.be/<id>","client_id":"alice","clip":"0-600","names":true}' \
      localhost:8088/v1/tasks
 # -> {"task_id":"...","status":"queued","pull_token":"<SAVE THIS>"}
 
-# poll (with the pull_token)
+# list YOUR OWN jobs (only yours)
+curl -H 'X-Client-Key: <client_key>' localhost:8088/v1/tasks
+
+# poll (with the pull_token, or your X-Client-Key)
 curl -H 'X-Task-Token: <pull_token>' localhost:8088/v1/tasks/<task_id>
 
 # download artifacts (zip of transcript.txt + subtitle.srt + segments.json + meta.json)
@@ -155,20 +163,24 @@ Task options (form fields or JSON): `hotwords`, `speakers`, `reid`, `names`,
 `clip`, `name`. Status lifecycle: `queued → downloading → preprocessing →
 transcribing → postprocessing → done | failed | cancelled`. **One task runs at a
 time** (single resident GPU worker, FIFO; the store enforces ≤1 `running`).
-**Access control:** task ops require the per-task `pull_token` (fail-closed: a task
-with no token is inaccessible). Cross-task listing (`GET /v1/tasks`, `/v1/queue`) is
-**admin-only** — gated by the `TTS_SERVE_API_KEY` bearer when set (open otherwise, for
-localhost dev). **Storage:** durable SQLite (`data/tasks.db`, WAL) — schema
-auto-migrates on `init()`; terminal tasks older than `TTS_SERVE_RETENTION_DAYS`
+**Access control:** enqueue and "list my jobs" require a registered client's
+`X-Client-Key`; a single task is reachable by its owner (`X-Client-Key`) or its
+per-task `pull_token` (`X-Task-Token`) — fail-closed, so a task with neither match
+is inaccessible. `GET /v1/tasks` with a client key returns **only that client's
+tasks**; the cross-client admin view (all tasks, `/v1/queue`) is gated by the
+`TTS_SERVE_API_KEY` bearer when set (open otherwise, for localhost dev). Client keys
+are stored only as SHA-256 hashes. **Storage:** durable SQLite (`data/tasks.db`, WAL)
+— schema auto-migrates on `init()`; terminal tasks older than `TTS_SERVE_RETENTION_DAYS`
 (default 7) are purged on startup + hourly by the worker.
 
 All endpoints are typed (Pydantic) → `/openapi.json` (OpenAPI 3.1) yields a typed
 generated client via `openapi-generator-cli` / `openapi-python-client` / `openapi-typescript`.
 
 **Endpoints**
-- `POST /v1/tasks` — queue a URL (JSON `{source, ...opts}`) → `{task_id}`
-- `POST /v1/tasks/upload` — queue a file (multipart `file=@audio` + opts) → `{task_id}`
-- `GET /v1/tasks/{id}` — status/stage; `GET /v1/tasks` — recent
+- `POST /v1/clients` — register a `client_id` → `{client_id, client_key}` (key shown once)
+- `POST /v1/tasks` — queue a URL (JSON `{source, ...opts}` + `X-Client-Key`) → `{task_id, pull_token}`
+- `POST /v1/tasks/upload` — queue a file (multipart `file=@audio` + opts + `X-Client-Key`) → `{task_id, pull_token}`
+- `GET /v1/tasks/{id}` — status/stage; `GET /v1/tasks` — **your jobs** (`X-Client-Key`) or all (admin)
 - `GET /v1/tasks/{id}/artifact` — zip (200 done / 409 not-ready / 404)
 - `GET /v1/queue` — admin: what's running + the pending queue + counts
 - `DELETE /v1/tasks/{id}` — remove a queued/done/failed task (409 if running)

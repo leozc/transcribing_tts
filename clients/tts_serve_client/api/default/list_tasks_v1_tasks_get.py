@@ -18,9 +18,14 @@ from typing import cast
 def _get_kwargs(
     *,
     client_id: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
-    
+    headers: dict[str, Any] = {}
+    if not isinstance(x_client_key, Unset):
+        headers["x-client-key"] = x_client_key
+
+
 
     
 
@@ -44,6 +49,7 @@ def _get_kwargs(
     }
 
 
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -82,12 +88,14 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     client_id: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> Response[HTTPValidationError | TaskList]:
     """ List Tasks
 
     Args:
         client_id (None | str | Unset):
+        x_client_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -100,6 +108,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         client_id=client_id,
+x_client_key=x_client_key,
 
     )
 
@@ -113,12 +122,14 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     client_id: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> HTTPValidationError | TaskList | None:
     """ List Tasks
 
     Args:
         client_id (None | str | Unset):
+        x_client_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -132,6 +143,7 @@ def sync(
     return sync_detailed(
         client=client,
 client_id=client_id,
+x_client_key=x_client_key,
 
     ).parsed
 
@@ -139,12 +151,14 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     client_id: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> Response[HTTPValidationError | TaskList]:
     """ List Tasks
 
     Args:
         client_id (None | str | Unset):
+        x_client_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -157,6 +171,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         client_id=client_id,
+x_client_key=x_client_key,
 
     )
 
@@ -170,12 +185,14 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     client_id: None | str | Unset = UNSET,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> HTTPValidationError | TaskList | None:
     """ List Tasks
 
     Args:
         client_id (None | str | Unset):
+        x_client_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -189,5 +206,6 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 client_id=client_id,
+x_client_key=x_client_key,
 
     )).parsed

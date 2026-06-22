@@ -11,6 +11,7 @@ from ... import errors
 from ...models.create_task_request import CreateTaskRequest
 from ...models.http_validation_error import HTTPValidationError
 from ...models.task_ref import TaskRef
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -18,9 +19,13 @@ from typing import cast
 def _get_kwargs(
     *,
     body: CreateTaskRequest,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    if not isinstance(x_client_key, Unset):
+        headers["x-client-key"] = x_client_key
+
 
 
     
@@ -75,11 +80,13 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: CreateTaskRequest,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> Response[HTTPValidationError | TaskRef]:
     """ Create Task
 
     Args:
+        x_client_key (None | str | Unset):
         body (CreateTaskRequest):
 
     Raises:
@@ -93,6 +100,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+x_client_key=x_client_key,
 
     )
 
@@ -106,11 +114,13 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: CreateTaskRequest,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> HTTPValidationError | TaskRef | None:
     """ Create Task
 
     Args:
+        x_client_key (None | str | Unset):
         body (CreateTaskRequest):
 
     Raises:
@@ -125,6 +135,7 @@ def sync(
     return sync_detailed(
         client=client,
 body=body,
+x_client_key=x_client_key,
 
     ).parsed
 
@@ -132,11 +143,13 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: CreateTaskRequest,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> Response[HTTPValidationError | TaskRef]:
     """ Create Task
 
     Args:
+        x_client_key (None | str | Unset):
         body (CreateTaskRequest):
 
     Raises:
@@ -150,6 +163,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+x_client_key=x_client_key,
 
     )
 
@@ -163,11 +177,13 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: CreateTaskRequest,
+    x_client_key: None | str | Unset = UNSET,
 
 ) -> HTTPValidationError | TaskRef | None:
     """ Create Task
 
     Args:
+        x_client_key (None | str | Unset):
         body (CreateTaskRequest):
 
     Raises:
@@ -182,5 +198,6 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 body=body,
+x_client_key=x_client_key,
 
     )).parsed

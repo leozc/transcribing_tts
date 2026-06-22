@@ -6,8 +6,10 @@ share one DB safely. No Redis — single-machine barebone. Artifacts live under
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import secrets
 import shutil
 import sqlite3
 import time
@@ -57,6 +59,42 @@ def init() -> None:
                 c.execute(f"ALTER TABLE tasks ADD COLUMN {col} TEXT")
         c.execute("CREATE INDEX IF NOT EXISTS idx_status ON tasks(status)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_client ON tasks(client_id)")
+        # registered clients: an authenticated identity so "list my tasks" is safe.
+        # We store only the SHA-256 of the high-entropy key, never the key itself.
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS clients(
+                client_id TEXT PRIMARY KEY, key_hash TEXT NOT NULL, created_at REAL)"""
+        )
+        c.execute("CREATE INDEX IF NOT EXISTS idx_keyhash ON clients(key_hash)")
+
+
+def _hash_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def create_client(client_id: str) -> str | None:
+    """Register a client_id and return a freshly minted secret client_key (shown
+    once). Returns None if the client_id is already taken. Only the key's hash is
+    stored, so the raw key cannot be recovered from the DB."""
+    key = secrets.token_urlsafe(24)
+    with _conn() as c:
+        try:
+            c.execute("INSERT INTO clients(client_id,key_hash,created_at) VALUES(?,?,?)",
+                      (client_id, _hash_key(key), time.time()))
+        except sqlite3.IntegrityError:
+            return None  # client_id already registered
+    return key
+
+
+def client_for_key(key: str | None) -> str | None:
+    """Resolve an X-Client-Key to the client_id it authenticates, or None. The key
+    is high-entropy (token_urlsafe), so a direct hash lookup is sufficient."""
+    if not key:
+        return None
+    with _conn() as c:
+        r = c.execute("SELECT client_id FROM clients WHERE key_hash=?",
+                      (_hash_key(key),)).fetchone()
+    return r["client_id"] if r else None
 
 
 def task_dir(tid: str) -> Path:

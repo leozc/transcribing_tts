@@ -8,24 +8,19 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.body_upload_task_v1_tasks_upload_post import BodyUploadTaskV1TasksUploadPost
+from ...models.client_create import ClientCreate
+from ...models.client_credentials import ClientCredentials
 from ...models.http_validation_error import HTTPValidationError
-from ...models.task_ref import TaskRef
-from ...types import UNSET, Unset
 from typing import cast
 
 
 
 def _get_kwargs(
     *,
-    body: BodyUploadTaskV1TasksUploadPost,
-    x_client_key: None | str | Unset = UNSET,
+    body: ClientCreate,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-    if not isinstance(x_client_key, Unset):
-        headers["x-client-key"] = x_client_key
-
 
 
     
@@ -34,25 +29,25 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/v1/tasks/upload",
+        "url": "/v1/clients",
     }
 
-    _kwargs["files"] = body.to_multipart()
+    _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "multipart/form-data; boundary=+++"
+    headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | TaskRef | None:
-    if response.status_code == 200:
-        response_200 = TaskRef.from_dict(response.json())
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ClientCredentials | HTTPValidationError | None:
+    if response.status_code == 201:
+        response_201 = ClientCredentials.from_dict(response.json())
 
 
 
-        return response_200
+        return response_201
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
@@ -67,7 +62,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | TaskRef]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ClientCredentials | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -79,28 +74,29 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    body: BodyUploadTaskV1TasksUploadPost,
-    x_client_key: None | str | Unset = UNSET,
+    body: ClientCreate,
 
-) -> Response[HTTPValidationError | TaskRef]:
-    """ Upload Task
+) -> Response[ClientCredentials | HTTPValidationError]:
+    """ Register Client
+
+     Register a client_id and receive a secret client_key (shown ONCE). Send the
+    key as 'X-Client-Key' to enqueue tasks and to list/fetch your own tasks. The
+    client_id is first-come-first-served; 409 if already taken.
 
     Args:
-        x_client_key (None | str | Unset):
-        body (BodyUploadTaskV1TasksUploadPost):
+        body (ClientCreate):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TaskRef]
+        Response[ClientCredentials | HTTPValidationError]
      """
 
 
     kwargs = _get_kwargs(
         body=body,
-x_client_key=x_client_key,
 
     )
 
@@ -113,57 +109,59 @@ x_client_key=x_client_key,
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    body: BodyUploadTaskV1TasksUploadPost,
-    x_client_key: None | str | Unset = UNSET,
+    body: ClientCreate,
 
-) -> HTTPValidationError | TaskRef | None:
-    """ Upload Task
+) -> ClientCredentials | HTTPValidationError | None:
+    """ Register Client
+
+     Register a client_id and receive a secret client_key (shown ONCE). Send the
+    key as 'X-Client-Key' to enqueue tasks and to list/fetch your own tasks. The
+    client_id is first-come-first-served; 409 if already taken.
 
     Args:
-        x_client_key (None | str | Unset):
-        body (BodyUploadTaskV1TasksUploadPost):
+        body (ClientCreate):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TaskRef
+        ClientCredentials | HTTPValidationError
      """
 
 
     return sync_detailed(
         client=client,
 body=body,
-x_client_key=x_client_key,
 
     ).parsed
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    body: BodyUploadTaskV1TasksUploadPost,
-    x_client_key: None | str | Unset = UNSET,
+    body: ClientCreate,
 
-) -> Response[HTTPValidationError | TaskRef]:
-    """ Upload Task
+) -> Response[ClientCredentials | HTTPValidationError]:
+    """ Register Client
+
+     Register a client_id and receive a secret client_key (shown ONCE). Send the
+    key as 'X-Client-Key' to enqueue tasks and to list/fetch your own tasks. The
+    client_id is first-come-first-served; 409 if already taken.
 
     Args:
-        x_client_key (None | str | Unset):
-        body (BodyUploadTaskV1TasksUploadPost):
+        body (ClientCreate):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TaskRef]
+        Response[ClientCredentials | HTTPValidationError]
      """
 
 
     kwargs = _get_kwargs(
         body=body,
-x_client_key=x_client_key,
 
     )
 
@@ -176,28 +174,29 @@ x_client_key=x_client_key,
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    body: BodyUploadTaskV1TasksUploadPost,
-    x_client_key: None | str | Unset = UNSET,
+    body: ClientCreate,
 
-) -> HTTPValidationError | TaskRef | None:
-    """ Upload Task
+) -> ClientCredentials | HTTPValidationError | None:
+    """ Register Client
+
+     Register a client_id and receive a secret client_key (shown ONCE). Send the
+    key as 'X-Client-Key' to enqueue tasks and to list/fetch your own tasks. The
+    client_id is first-come-first-served; 409 if already taken.
 
     Args:
-        x_client_key (None | str | Unset):
-        body (BodyUploadTaskV1TasksUploadPost):
+        body (ClientCreate):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TaskRef
+        ClientCredentials | HTTPValidationError
      """
 
 
     return (await asyncio_detailed(
         client=client,
 body=body,
-x_client_key=x_client_key,
 
     )).parsed

@@ -1,8 +1,16 @@
 # E2E concurrency test — results
 
-3 clients submit concurrently; the single-GPU server processes **one task at a time**
-(FIFO); access uses the per-task **pull_token** (client_id is attribution only);
-client3 polls + pulls its artifacts. Requests in `requests.json`; rerun with `run.sh`.
+3 clients each **register** (→ secret `client_key`), then submit concurrently; the
+single-GPU server processes **one task at a time** (FIFO); a client lists/fetches its
+own jobs with its `X-Client-Key`, and per-task `pull_token`s gate individual pulls.
+Requests in `requests.json`; rerun with `run.sh`.
+
+## "List my jobs" — client3 sees ONLY its own (3 of the 5 total)
+```
+# GET /v1/tasks  (header X-Client-Key: <client3 key>)
+client3 sees 3 jobs: ['client3', 'client3', 'client3']
+```
+client1/client2's tasks are invisible to client3 — the key authenticates the scope.
 
 ## Submitted (5 tasks across 3 clients) — each create returned a pull_token
 | client | name | source | type |
@@ -16,11 +24,11 @@ client3 polls + pulls its artifacts. Requests in `requests.json`; rerun with `ru
 ## Server processed serially (from `GET /v1/queue`, admin view)
 ```
 running -         queued 5   {queued:5}
-running 2ea9ecaa  queued 4   {queued:4, running:1}
-running 61112f57  queued 3   {done:1, queued:3, running:1}
-running 8a7d05bb  queued 2   {done:2, queued:2, running:1}
-running 8839b999  queued 1   {done:3, queued:1, running:1}
-running 775698ac  queued 0   {done:4, running:1}
+running 3b96b185  queued 4   {queued:4, running:1}
+running e72cf718  queued 3   {done:1, queued:3, running:1}
+running d9717488  queued 2   {done:2, queued:2, running:1}
+running 44197ee9  queued 1   {done:3, queued:1, running:1}
+running 076302ce  queued 0   {done:4, running:1}
 running -         queued 0   {done:5}
 ```
 **Exactly one `running` at every snapshot — global concurrency = 1.** Queue drained 5→0.
@@ -46,5 +54,6 @@ zip = `{transcript.txt, subtitle.srt, segments.json, meta.json}`. Saved in `clie
 - All four submission paths work: YouTube, **Bilibili** (logged-in cookies clear the 412),
   file upload, and a client firing multiple requests.
 - Single-GPU serial processing enforced; `/v1/queue` (admin) reflects it live.
-- Access is capability-based: each task's `pull_token` (returned at create) gates
-  poll/pull; `client_id` is attribution. Spoofing a `client_id` grants nothing.
+- **Clients see their own jobs**: `GET /v1/tasks` with `X-Client-Key` returns only that
+  client's tasks (authenticated identity — `client_id` alone can't be spoofed to list).
+- A single task is reachable by its owner (`X-Client-Key`) or its per-task `pull_token`.

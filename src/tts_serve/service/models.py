@@ -35,6 +35,23 @@ class CreateTaskRequest(BaseModel):
         return out
 
 
+class ClientCreate(BaseModel):
+    client_id: str = Field(min_length=1)   # the identity to register
+
+    @field_validator("client_id")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
+
+
+class ClientCredentials(BaseModel):
+    client_id: str
+    client_key: str   # secret, shown ONCE; send as X-Client-Key to enqueue + list your tasks
+
+
 class TaskRef(BaseModel):
     task_id: str
     status: str

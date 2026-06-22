@@ -1,6 +1,9 @@
 {
-  "description": "E2E concurrency test: 3 clients submit to the single-GPU service; server processes one at a time (FIFO); client3 polls and pulls its artifacts. Each client passes a client_id (required) and uses the same id (X-Client-Id header) to poll/pull.",
+  "description": "E2E concurrency test: 3 clients submit to the single-GPU service; server processes one at a time (FIFO); client3 polls and pulls its artifacts. Each client first registers (POST /v1/clients {client_id}) to get a secret client_key, sent as the X-Client-Key header to enqueue and to list its own jobs.",
   "base_url": "http://localhost:8091",
+  "register": {"method": "POST", "path": "/v1/clients", "content_type": "application/json",
+               "body": {"client_id": "<client1|client2|client3>"},
+               "returns": "{client_id, client_key}  (client_key shown once; send as 'X-Client-Key' on every enqueue/list)"},
   "clients": {
     "client1_youtube": [
       {"method": "POST", "path": "/v1/tasks", "content_type": "application/json",
@@ -20,5 +23,6 @@
        "body": {"source": "https://youtu.be/3Amlu4y94Ho", "client_id": "client3", "clip": "60-75", "name": "c3_req3"}}
     ]
   },
-  "then": "Each POST returns a per-task pull_token. client3 polls GET /v1/tasks/{id} with header 'X-Task-Token: <pull_token>' until done, then GET /v1/tasks/{id}/artifact (same token) -> zip. client_id is attribution only (not a credential). /v1/queue is the admin view (bearer-gated when TTS_SERVE_API_KEY set)."
+  "note_auth": "Every POST /v1/tasks and /v1/tasks/upload carries the header 'X-Client-Key: <client_key>' from registration; without it the enqueue is 401. A client lists its own jobs with GET /v1/tasks + X-Client-Key (sees ONLY its tasks).",
+  "then": "Each POST returns a per-task pull_token. client3 polls GET /v1/tasks/{id} with header 'X-Task-Token: <pull_token>' (or its X-Client-Key) until done, then GET /v1/tasks/{id}/artifact (same auth) -> zip. /v1/queue is the admin view (bearer-gated when TTS_SERVE_API_KEY set)."
 }

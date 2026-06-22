@@ -1,15 +1,19 @@
 """Service tests — store + API, no GPU (transcription is simulated).
 
-Access control: client_id is attribution (who enqueued); the per-task pull_token
-returned at create is the capability required to poll/pull/delete/retry.
+Access model: a registered client's X-Client-Key authenticates enqueue and scopes
+"list my tasks" to that client; a single task is reachable by its owner
+(X-Client-Key) OR the per-task pull_token returned at create (X-Task-Token).
 """
 import importlib
 import io
+import itertools
 import sqlite3
 import time
 import zipfile
 
 import pytest
+
+_ids = itertools.count()
 
 
 @pytest.fixture()
@@ -25,15 +29,30 @@ def svc(tmp_path, monkeypatch):
     return store_mod, api_mod, TestClient(api_mod.app)
 
 
-def _enqueue(client, **body):
-    body.setdefault("client_id", "alice")
-    r = client.post("/v1/tasks", json={"source": "https://youtu.be/x", **body})
-    assert r.status_code == 200, r.text
-    return r.json()["task_id"], r.json()["pull_token"]
+def _reg(client, client_id):
+    r = client.post("/v1/clients", json={"client_id": client_id})
+    assert r.status_code == 201, r.text
+    return r.json()["client_key"]
+
+
+def ckey(k):
+    return {"X-Client-Key": k}
 
 
 def tok(t):
     return {"X-Task-Token": t}
+
+
+def _enqueue(client, client_id=None, key=None, **body):
+    """Register a client (unless a key is supplied) and enqueue a task as it."""
+    if client_id is None:
+        client_id = f"c{next(_ids)}"
+    if key is None:
+        key = _reg(client, client_id)
+    r = client.post("/v1/tasks", json={"source": "https://youtu.be/x", "client_id": client_id, **body},
+                    headers=ckey(key))
+    assert r.status_code == 200, r.text
+    return r.json()["task_id"], r.json()["pull_token"]
 
 
 # ---------- store ----------
@@ -48,6 +67,19 @@ def test_store_single_concurrency_fifo(svc):
     store.update(a, status="done", stage="done")
     assert store.claim_next_queued()["id"] == b
     assert store.claim_next_queued() is None
+
+
+def test_client_registration(svc):
+    store, _, _ = svc
+    key = store.create_client("alice")
+    assert key and store.client_for_key(key) == "alice"
+    assert store.create_client("alice") is None          # duplicate id
+    assert store.client_for_key("nope") is None           # unknown key
+    assert store.client_for_key(None) is None
+    # the raw key is never stored, only its hash
+    with store._conn() as c:
+        row = c.execute("SELECT key_hash FROM clients WHERE client_id='alice'").fetchone()
+    assert row["key_hash"] != key and len(row["key_hash"]) == 64
 
 
 def test_reclaim_stale(svc):
@@ -79,58 +111,102 @@ def test_migration_adds_columns(tmp_path, monkeypatch):
                 " source_type TEXT, options_json TEXT, error TEXT, created_at REAL, updated_at REAL)")
     con.execute("INSERT INTO tasks(id,status) VALUES('old1','done')")
     con.commit(); con.close()
-    store_mod.init()  # ALTER TABLE ADD client_id, token
+    store_mod.init()  # ALTER TABLE ADD client_id, token + CREATE clients
     row = store_mod.get("old1")
     assert row["client_id"] is None and row["token"] is None  # legacy -> fail-closed
+    assert store_mod.create_client("x")  # clients table created by the migration
 
 
-# ---------- API: create + token ----------
+# ---------- API: register + enqueue ----------
 
-def test_create_returns_token_and_status(svc):
+def test_register_and_create_returns_token(svc):
     _, _, client = svc
-    tid, t = _enqueue(client, speakers=2, reid=True)
+    tid, t = _enqueue(client, client_id="alice", speakers=2, reid=True)
     assert t and isinstance(t, str)
     s = client.get(f"/v1/tasks/{tid}", headers=tok(t)).json()
     assert s["status"] == "queued" and s["client_id"] == "alice"
     assert s["options"]["speakers"] == 2 and s["options"]["reid"] is True
 
 
+def test_register_duplicate_and_blank(svc):
+    _, _, client = svc
+    assert client.post("/v1/clients", json={"client_id": "alice"}).status_code == 201
+    assert client.post("/v1/clients", json={"client_id": "alice"}).status_code == 409
+    assert client.post("/v1/clients", json={"client_id": "  "}).status_code == 422
+    assert client.post("/v1/clients", json={}).status_code == 422
+
+
+def test_enqueue_requires_client_key(svc):
+    _, _, client = svc
+    key = _reg(client, "alice")
+    body = {"source": "https://youtu.be/x", "client_id": "alice"}
+    assert client.post("/v1/tasks", json=body).status_code == 401                       # no key
+    assert client.post("/v1/tasks", json=body, headers=ckey("bad")).status_code == 401   # invalid key
+    # key authenticates alice but body claims bob -> mismatch
+    assert client.post("/v1/tasks", json={**body, "client_id": "bob"},
+                       headers=ckey(key)).status_code == 403
+    assert client.post("/v1/tasks", json=body, headers=ckey(key)).status_code == 200
+
+
 def test_create_via_upload(svc):
     store, _, client = svc
+    key = _reg(client, "bob")
     r = client.post("/v1/tasks/upload",
                     files={"file": ("meeting.wav", b"RIFFxxxx", "audio/wav")},
-                    data={"client_id": "bob", "speakers": "2"})
+                    data={"client_id": "bob", "speakers": "2"}, headers=ckey(key))
     assert r.status_code == 200 and r.json()["pull_token"]
     t = store.get(r.json()["task_id"])
     assert t["client_id"] == "bob" and t["token"] == r.json()["pull_token"]
     assert t["source"].endswith("input.wav") and t["options"]["speakers"] == 2
+    # upload without a key is refused
+    assert client.post("/v1/tasks/upload",
+                       files={"file": ("a.wav", b"x", "audio/wav")},
+                       data={"client_id": "bob"}).status_code == 401
 
 
 def test_create_requires_source_and_client_id(svc):
     _, _, client = svc
+    # body validation (422) happens regardless of auth
     assert client.post("/v1/tasks", json={}).status_code == 422
     assert client.post("/v1/tasks", json={"source": "x://y"}).status_code == 422
     assert client.post("/v1/tasks", json={"client_id": "a"}).status_code == 422
-
-
-def test_blank_client_id_rejected(svc):
-    _, _, client = svc
     assert client.post("/v1/tasks", json={"source": "u://x", "client_id": "   "}).status_code == 422
-    r = client.post("/v1/tasks/upload",
-                    files={"file": ("a.wav", b"x", "audio/wav")}, data={"client_id": "  "})
-    assert r.status_code == 422
 
 
-# ---------- API: token access control ----------
+# ---------- API: access control ----------
 
 def test_token_required_for_access(svc):
     _, _, client = svc
     tid, t = _enqueue(client)
-    assert client.get(f"/v1/tasks/{tid}").status_code == 403                       # no token
+    assert client.get(f"/v1/tasks/{tid}").status_code == 403                       # nothing
     assert client.get(f"/v1/tasks/{tid}", headers=tok("wrong")).status_code == 403  # bad token
     assert client.get(f"/v1/tasks/{tid}/artifact", headers=tok("wrong")).status_code == 403
     assert client.get(f"/v1/tasks/{tid}", headers=tok(t)).status_code == 200        # good token
     assert client.get(f"/v1/tasks/{tid}?token={t}").status_code == 200              # via query
+
+
+def test_owner_key_accesses_own_task_not_others(svc):
+    _, _, client = svc
+    a_key = _reg(client, "alice")
+    b_key = _reg(client, "bob")
+    tid, _t = _enqueue(client, client_id="alice", key=a_key)
+    # alice reaches her task with just her client key (no pull_token)
+    assert client.get(f"/v1/tasks/{tid}", headers=ckey(a_key)).status_code == 200
+    # bob's key does not reach alice's task
+    assert client.get(f"/v1/tasks/{tid}", headers=ckey(b_key)).status_code == 403
+
+
+def test_client_lists_only_own_tasks(svc):
+    _, _, client = svc
+    a_key = _reg(client, "alice")
+    b_key = _reg(client, "bob")
+    _enqueue(client, client_id="alice", key=a_key)
+    _enqueue(client, client_id="alice", key=a_key)
+    _enqueue(client, client_id="bob", key=b_key)
+    alice = client.get("/v1/tasks", headers=ckey(a_key)).json()["tasks"]
+    bob = client.get("/v1/tasks", headers=ckey(b_key)).json()["tasks"]
+    assert len(alice) == 2 and all(t["client_id"] == "alice" for t in alice)
+    assert len(bob) == 1 and bob[0]["client_id"] == "bob"
 
 
 def test_no_token_task_is_inaccessible(svc):
@@ -143,7 +219,7 @@ def test_admin_list_and_queue(svc):
     _, _, client = svc
     _enqueue(client, client_id="alice")
     _enqueue(client, client_id="bob")
-    # no API key configured in tests -> admin views open
+    # no API key configured in tests -> admin views open (no X-Client-Key -> see all)
     assert len(client.get("/v1/tasks").json()["tasks"]) == 2
     assert len(client.get("/v1/tasks?client_id=alice").json()["tasks"]) == 1
     q = client.get("/v1/queue").json()
@@ -197,7 +273,8 @@ def test_agent_info_and_openapi(svc):
     r = client.get("/agent_info").json()
     assert r["service"] == "tts_serve" and r["workflow"] and r["spec"]["openapi"] == "/openapi.json"
     assert "identity" in r
-    assert client.get("/openapi.json").status_code == 200
+    spec = client.get("/openapi.json").json()
+    assert "/v1/clients" in spec["paths"]  # registration is discoverable
 
 
 def test_admin_endpoints_require_bearer_when_key_set(tmp_path, monkeypatch):
