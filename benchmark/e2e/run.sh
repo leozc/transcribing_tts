@@ -11,7 +11,7 @@ tk() { python3 -c 'import sys,json;print(json.load(sys.stdin)["pull_token"])'; }
 
 echo "# submit (concurrent) — client_id = attribution; response carries the pull_token"
 R1=$(curl -s $J -d '{"source":"https://youtu.be/3Amlu4y94Ho","client_id":"client1","clip":"0-20","name":"c1_youtube"}'  "$B/v1/tasks"); C1=$(echo "$R1"|id); T1=$(echo "$R1"|tk)
-R2=$(curl -s $J -d '{"source":"https://b23.tv/fZQNYqJ","client_id":"client2","name":"c2_bilibili"}'                      "$B/v1/tasks"); C2=$(echo "$R2"|id); T2=$(echo "$R2"|tk)
+R2=$(curl -s $J -d '{"source":"https://b23.tv/fZQNYqJ","client_id":"client2","clip":"0-60","name":"c2_bilibili"}'         "$B/v1/tasks"); C2=$(echo "$R2"|id); T2=$(echo "$R2"|tk)
 R3A=$(curl -s -F file=@benchmark/sample/allin_60s_16k.wav -F client_id=client3 -F speakers=2 -F name=c3_file            "$B/v1/tasks/upload"); C3A=$(echo "$R3A"|id); T3A=$(echo "$R3A"|tk)
 R3B=$(curl -s $J -d '{"source":"https://youtu.be/3Amlu4y94Ho","client_id":"client3","clip":"40-55","name":"c3_req2"}'    "$B/v1/tasks"); C3B=$(echo "$R3B"|id); T3B=$(echo "$R3B"|tk)
 R3C=$(curl -s $J -d '{"source":"https://youtu.be/3Amlu4y94Ho","client_id":"client3","clip":"60-75","name":"c3_req3"}'    "$B/v1/tasks"); C3C=$(echo "$R3C"|id); T3C=$(echo "$R3C"|tk)

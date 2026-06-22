@@ -8,8 +8,8 @@
     ],
     "client2_bilibili": [
       {"method": "POST", "path": "/v1/tasks", "content_type": "application/json",
-       "body": {"source": "https://b23.tv/fZQNYqJ", "client_id": "client2", "name": "c2_bilibili"},
-       "note": "Bilibili. With a logged-in session (scripts/bili_login.py -> data/bili_cookies.txt, auto-used by the worker) this succeeds; from a 412-blocked datacenter IP without cookies it ends 'failed'."}
+       "body": {"source": "https://b23.tv/fZQNYqJ", "client_id": "client2", "clip": "0-60", "name": "c2_bilibili"},
+       "note": "Bilibili (b23.tv short link). Works because the worker uses the logged-in cookies from scripts/bili_login.py (data/bili_cookies.txt / $YT_COOKIES); without them a datacenter IP gets HTTP 412."}
     ],
     "client3_file_and_multiple": [
       {"method": "POST", "path": "/v1/tasks/upload", "content_type": "multipart/form-data",
