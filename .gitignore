@@ -28,3 +28,6 @@ benchmark/*.pid
 
 # Claude harness
 .claude/
+
+# Captions (downloaded reference)
+benchmark/captions/

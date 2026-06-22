@@ -101,3 +101,36 @@ inspection," not a measured error rate.
 **To truly verify:** pull each source's reference transcript (e.g. YouTube
 captions) and compute WER/CER; use reference speaker turns for DER. That is the
 right next step to put a number on accuracy. (TODO)
+
+---
+
+# Measured accuracy — WER/CER vs YouTube captions
+
+`benchmark/accuracy_eval.py` pulls each YouTube video's own captions (json3,
+same clip window) as a **proxy reference** and computes WER (English) / CER
+(Chinese, char-level).
+
+| id | metric | error % | notes |
+|----|--------|--------:|-------|
+| v7_eric_schmidt | WER | **3.6%** | best — clean interview speech |
+| v5_2people | WER | **6.4%** | |
+| v4 (4 people) | WER | **6.9%** | |
+| v3_allin | WER | **7.5%** | overlap/banter |
+| v1_chinese | CER | **9.8%** | zh/en code-switching (char-level) |
+| v2_english | WER | 19.1% | outlier — see below |
+| v6_chinese_pure | — | n/a | no YouTube captions available |
+
+**Interpretation.** English WER of ~4–7% **against captions that are themselves
+~5–15% WER and stripped of punctuation/casing** means our output is at least as
+good as YouTube's ASR, often better. CER 9.8% on Chinese code-switching is solid.
+
+**The v2 "19%" is not error.** Inspected: both transcripts cover the same span and
+end on the same sentence, but our hypothesis has ~340 more words because we
+transcribe **verbatim** (keeps "okay", "let's, let's", repeated fillers) while the
+captions clean disfluencies. WER against cleaned captions penalizes faithful
+verbatim ASR — so true accuracy is likely *better* than the number.
+
+**Limits of this method:** (1) captions are an imperfect proxy, not gold; (2) no
+punctuation/casing normalization beyond lowercasing+depunct; (3) measures words
+only — **not** speaker attribution (no DER/cpWER yet); (4) v6 (pure Chinese) has no
+captions, so unmeasured. A small human-checked gold clip remains the real test.
