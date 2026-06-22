@@ -1,0 +1,32 @@
+[
+  {
+    "key": "librispeech_en",
+    "metric": "WER",
+    "value": 3.2,
+    "n": 50
+  },
+  {
+    "key": "fleurs_en",
+    "metric": "WER",
+    "value": 6.6,
+    "n": 50
+  },
+  {
+    "key": "fleurs_zh",
+    "metric": "CER",
+    "value": 16.1,
+    "n": 50
+  },
+  {
+    "key": "fleurs_ja",
+    "metric": "CER",
+    "value": 13.7,
+    "n": 50
+  },
+  {
+    "key": "fleurs_es",
+    "metric": "WER",
+    "value": 5.7,
+    "n": 50
+  }
+]

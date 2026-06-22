@@ -166,3 +166,26 @@ over-count (5→4) both fixed; no regressions.
 **Caveat:** re-id uses the known speaker count (`--speakers` / `expected_speakers`).
 Auto count-estimation over-splits (threshold clustering) — TODO: spectral
 clustering + eigengap. This measures *count*, not full DER (no reference turns).
+
+---
+
+# Gold-reference accuracy — real WER/CER vs human transcripts
+
+`benchmark/gold_eval.py` streams N=50 utterances from standard ASR benchmarks with
+**human ground-truth** transcripts (not the YouTube-caption proxy) and computes
+aggregate WER (English/Spanish) / CER (Chinese/Japanese, char-level). Audio bytes
+are decoded via `soundfile` (avoids torchcodec/ffmpeg-lib issues).
+
+| dataset | metric | error % | n |
+|---------|--------|--------:|--:|
+| LibriSpeech test-clean (en) | WER | **3.2%** | 50 |
+| FLEURS es | WER | **5.7%** | 50 |
+| FLEURS en | WER | **6.6%** | 50 |
+| FLEURS ja | CER | **13.7%** | 50 |
+| FLEURS zh | CER | **16.1%** | 50 |
+
+These are honest, reference-based numbers. **LibriSpeech 3.2% WER** on clean English
+read speech is strong. CER on zh/ja is higher partly because VibeVoice occasionally
+emits a `[Silence]`-only output on a short utterance (a full deletion) — those tags
+are stripped before scoring, but the missed utterance still counts. Run:
+`python benchmark/gold_eval.py --n 50 --langs librispeech_en,fleurs_en,fleurs_zh,fleurs_ja,fleurs_es`
