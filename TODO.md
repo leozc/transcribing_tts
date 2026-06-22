@@ -42,3 +42,12 @@ The HTTP service runs as two processes today (`tts-serve-api` + `tts-serve-worke
 sharing SQLite + `data/`). A `docker-compose.yml` (api + GPU worker) needs a CUDA
 Dockerfile (torch cu121 + ./VibeVoice + model cache volume); deferred since the host
 runs the venv directly. Add when containerized deploy is needed.
+
+## Support Bilibili (and other yt-dlp sites) as a source
+yt-dlp already supports bilibili.com (and 1000+ sites), but our source classifier
+routes only youtube hosts to the yt-dlp provider; a bilibili URL currently falls to
+the plain HTTP downloader (which fetches the HTML page, not the video). Fix:
+generalize `YouTubeProvider` into a "yt-dlp provider" that handles a allowlist of
+hosts (youtube, bilibili, etc.) — or, for any non-direct-media http(s) URL, try
+yt-dlp first and fall back to direct download. Add bilibili.com / b23.tv to the
+recognized hosts in src/tts_serve/sources.py:classify.
