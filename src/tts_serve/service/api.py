@@ -275,17 +275,28 @@ def agent_info() -> dict:
             "2. GET /v1/tasks/{task_id} with EITHER the token (header 'X-Task-Token: <pull_token>' "
             "or ?token=) OR your 'X-Client-Key'; poll 'status' until 'done' (stop on 'failed'/"
             "'cancelled'); 'stage' shows progress while status=='running'",
-            "3. GET /v1/tasks/{task_id}/artifact (same auth) -> zip "
-            "(transcript.txt, subtitle.srt, segments.json, meta.json)",
+            "3. GET THE RESULT: once status=='done', GET /v1/tasks/{task_id}/artifact (same "
+            "auth) -> a .zip (HTTP 409 if you fetch before it is done, 404 if expired). Unzip "
+            "it: transcript.txt = readable transcript; subtitle.srt = SRT captions; "
+            "segments.json = machine format [{start,end,speaker,text}]; meta.json = run info.",
             "List your own jobs anytime: GET /v1/tasks with header 'X-Client-Key' -> only your tasks.",
         ],
+        "result": "The deliverable is the artifact zip from GET /v1/tasks/{task_id}/artifact, "
+                  "available ONLY when status=='done' (poll step 2 first; 409 before done, 404 "
+                  "after retention expiry). Authorize with the same X-Task-Token or owner "
+                  "X-Client-Key. The zip contains: transcript.txt (human-readable), subtitle.srt "
+                  "(captions), segments.json (canonical: {source, duration_s, speakers[], "
+                  "segments[]{start,end,speaker,text}}), meta.json. curl example: "
+                  "curl -H 'X-Task-Token: <pull_token>' -OJ <base>/v1/tasks/<task_id>/artifact",
         "identity": "Register a client (POST /v1/clients) to get a secret client_key. Send it as "
                     "'X-Client-Key' to enqueue (the task is owned by that authenticated client) and "
                     "to GET /v1/tasks (lists ONLY your tasks). The body client_id is a label and "
                     "must match your key. ACCESS to a single task (poll/pull/delete/retry) takes "
                     "EITHER your X-Client-Key (owner) OR the per-task pull_token from create "
                     "(X-Task-Token / ?token=, for sharing one task). Fails closed otherwise.",
-        "concurrency": "One task runs at a time (single resident GPU worker, FIFO queue).",
+        "concurrency": "One task runs at a time (single GPU worker, FIFO queue; the model "
+                       "loads on demand, so the first task after an idle period adds a brief "
+                       "load — watch for stage=loading_model).",
         "status_values": ["queued", "running", "done", "failed", "cancelled"],
         "stage_values": ["loading_model", "downloading", "preprocessing", "transcribing", "postprocessing", "done"],
         "task_options": {
