@@ -53,10 +53,15 @@ def _startup() -> None:
     days = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
     log.info("api starting | data=%s db=%s admin_bearer=%s retention=%.0fd",
              store.DATA, store.DB, "on" if auth_on else "OFF(dev-open)", days)
-    # lifecycle maintenance: purge terminal tasks older than retention (0 disables)
+    # lifecycle maintenance: purge terminal tasks older than retention (0 disables),
+    # then reclaim bulky input media of done tasks (the worker also does this daily)
     n = store.purge_old(days)
     if n:
         log.info("purged %d task(s) older than %.0fd on startup", n, days)
+    if os.environ.get("TTS_SERVE_KEEP_INPUT", "0").strip().lower() not in ("1", "true", "yes", "on"):
+        t, b = store.reclaim_inputs()
+        if t:
+            log.info("reclaimed input media from %d done task(s) on startup (freed %.1f MB)", t, b / 1e6)
 
 
 async def _auth(request: Request) -> None:

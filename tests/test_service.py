@@ -111,6 +111,26 @@ def test_purge_old(svc):
     assert store.get(old) is None and store.get(keep) is not None
 
 
+def test_reclaim_inputs(svc):
+    store, _, _ = svc
+    tid = store.create("u://x", "url", {})
+    d = store.task_dir(tid)
+    (d / "input.m4a").write_bytes(b"x" * 1000)        # downloaded source ("inbox")
+    (d / "audio_16k.wav").write_bytes(b"y" * 2000)    # intermediate working copy
+    rdir = store.results_dir(tid); rdir.mkdir(parents=True, exist_ok=True)
+    (rdir / "transcript.txt").write_text("keep me")   # result ("outbox")
+    # not done -> default sweep (done-only) skips it (retry/debug keep their input)
+    assert store.reclaim_inputs() == (0, 0)
+    assert (d / "input.m4a").exists()
+    # done -> sweep drops input media, keeps results
+    store.update(tid, status="done")
+    swept, freed = store.reclaim_inputs()
+    assert swept == 1 and freed >= 3000
+    assert not (d / "input.m4a").exists() and not (d / "audio_16k.wav").exists()
+    assert (rdir / "transcript.txt").read_text() == "keep me"
+    assert store.reclaim_inputs() == (0, 0)           # idempotent
+
+
 def test_migration_adds_columns(tmp_path, monkeypatch):
     monkeypatch.setenv("TTS_SERVE_DATA", str(tmp_path))
     from tts_serve.service import store as store_mod

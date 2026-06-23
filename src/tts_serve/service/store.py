@@ -244,6 +244,42 @@ def list_tasks(limit: int = 100, status: str | None = None,
     return [dict(r) for r in rows]
 
 
+def reclaim_inputs(statuses: tuple = ("done",)) -> tuple[int, int]:
+    """Maintenance: delete the bulky INPUT media (downloaded source + 16k working wav +
+    any chunk temps) of terminal tasks, keeping ``results/`` and the DB row intact. Frees
+    disk well before ``purge_old`` removes the whole task at retention. Defaults to 'done'
+    only — failed/cancelled keep their input so retry can reuse it and you can debug.
+    Returns (tasks_swept, bytes_freed)."""
+    if not statuses:
+        return (0, 0)
+    ph = ",".join("?" * len(statuses))
+    with _conn() as c:
+        ids = [r[0] for r in c.execute(
+            f"SELECT id FROM tasks WHERE status IN ({ph})", tuple(statuses)).fetchall()]
+    swept, freed = 0, 0
+    for tid in ids:
+        d = task_dir(tid)
+        if not d.exists():
+            continue
+        touched = False
+        for p in list(d.iterdir()):
+            if p.name == "results":  # keep the outbox
+                continue
+            try:
+                if p.is_dir():
+                    freed += sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
+                    shutil.rmtree(p, ignore_errors=True)
+                else:
+                    freed += p.stat().st_size
+                    p.unlink(missing_ok=True)
+                touched = True
+            except OSError:
+                pass
+        if touched:
+            swept += 1
+    return (swept, freed)
+
+
 def purge_old(max_age_days: float, statuses: tuple = ("done", "failed", "cancelled")) -> int:
     """Lifecycle maintenance: delete terminal tasks older than max_age_days (+ their
     files), then checkpoint the WAL. Never touches queued/running. 0/None disables."""

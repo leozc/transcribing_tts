@@ -123,6 +123,26 @@ def _should_spawn(counts: dict, child_alive: bool) -> bool:
     return (counts.get("queued", 0) + counts.get("running", 0)) > 0
 
 
+def _keep_input() -> bool:
+    return os.environ.get("TTS_SERVE_KEEP_INPUT", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _maint_interval() -> float:
+    return float(os.environ.get("TTS_SERVE_MAINT_INTERVAL", "86400"))  # daily
+
+
+def _run_maintenance(retention: float) -> None:
+    """Daily lifecycle pass: purge expired terminal tasks (row + dir), then reclaim the
+    bulky INPUT media of completed tasks (keeping their results/ until purge)."""
+    n = store.purge_old(retention)
+    if n:
+        log.info("purged %d old task(s) (retention=%.0fd)", n, retention)
+    if not _keep_input():
+        tasks, freed = store.reclaim_inputs()
+        if tasks:
+            log.info("reclaimed input media from %d done task(s) (freed %.1f MB)", tasks, freed / 1e6)
+
+
 def _worker_loop(idle_unload: float, *, exit_on_idle: bool) -> None:
     """Claim + process tasks until stopped. After ``idle_unload`` idle seconds: return
     (exit_on_idle, used by the recycle child -> process exits -> GPU 100% free) or free
@@ -133,6 +153,7 @@ def _worker_loop(idle_unload: float, *, exit_on_idle: bool) -> None:
         log.warning("re-queued %d stale running task(s) from a previous crash", reclaimed)
     poll = float(os.environ.get("TTS_SERVE_POLL", "1.0"))
     retention = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
+    maint_interval = _maint_interval()
 
     asr = None
     if idle_unload <= 0 and not exit_on_idle:
@@ -141,11 +162,8 @@ def _worker_loop(idle_unload: float, *, exit_on_idle: bool) -> None:
     last_maint = 0.0
     last_active = time.monotonic()
     while not _STOP:
-        # lifecycle maintenance roughly hourly (purge old terminal tasks + WAL checkpoint)
-        if time.time() - last_maint > 3600:
-            n = store.purge_old(retention)
-            if n:
-                log.info("purged %d old task(s) (retention=%.0fd)", n, retention)
+        if time.time() - last_maint > maint_interval:  # daily lifecycle pass
+            _run_maintenance(retention)
             last_maint = time.time()
 
         task = store.claim_next_queued()
@@ -208,8 +226,14 @@ def _supervisor(idle_unload: float) -> None:
     ctx = mp.get_context("spawn")
     # children log to stdout/journald only (one file-handler owner avoids rotation races)
     os.environ["TTS_SERVE_LOG_DIR"] = "none"
+    retention = float(os.environ.get("TTS_SERVE_RETENTION_DAYS", "7"))
+    maint_interval = _maint_interval()
+    last_maint = 0.0
     child: mp.process.BaseProcess | None = None
     while not _STOP:
+        if time.time() - last_maint > maint_interval:  # daily lifecycle pass (runs even while idle)
+            _run_maintenance(retention)
+            last_maint = time.time()
         if child is not None and not child.is_alive():
             child.join()
             log.info("worker child pid=%s exited (code=%s); GPU released", child.pid, child.exitcode)

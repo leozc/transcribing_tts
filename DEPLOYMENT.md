@@ -121,11 +121,21 @@ same handler so everything is one consistent stream.
   `git clean`/re-clone can't touch your queue. Keep it on a **local** disk (WAL locking is
   unsafe on NFS). Ad-hoc/CLI runs without the env var fall back to `<repo>/data`. Migrating
   an existing repo `data/`: `cp -a ./data/. ~/.local/state/tts_serve/` before first start.
-- **Per-task files**: `<DATA>/tasks/<id>/` — `input.*` (upload/download) + `results/`
-  (`transcript.txt`, `subtitle.srt`, `segments.json`, `meta.json`).
+- **Per-task files**: `<DATA>/tasks/<id>/` — input media (`input.*` for uploads, the
+  downloaded source + the 16k working wav for URLs) + `results/` (`transcript.txt`,
+  `subtitle.srt`, `segments.json`, `meta.json`).
 - **Logs**: `<DATA>/logs/{api,worker}.log`. **Registered clients**: a `clients` table in
-  the same DB (only SHA-256 key hashes). Terminal tasks are purged after
-  `TTS_SERVE_RETENTION_DAYS` (default 7).
+  the same DB (only SHA-256 key hashes).
+
+**Lifecycle maintenance** (one daily pass, `TTS_SERVE_MAINT_INTERVAL` default 86400s; the
+worker/supervisor runs it, the API also runs once at startup):
+1. **`reclaim_inputs`** — deletes the bulky input media (download + 16k wav + chunk temps)
+   of **done** tasks, keeping `results/`. The 16k wav alone is ~160 MB for a 1 h video and
+   is useless after transcription; at ~10×1 h/day this saves ~17 GB of standing disk. Set
+   `TTS_SERVE_KEEP_INPUT=1` to keep input (e.g. for re-processing). failed/cancelled keep
+   their input (retry can reuse it; easier debugging).
+2. **`purge_old`** — deletes the whole task (row + dir) once terminal and older than
+   `TTS_SERVE_RETENTION_DAYS` (default 7).
 
 ## Reliability
 - WAL SQLite handles concurrent access; `BEGIN IMMEDIATE` makes the claim atomic.
