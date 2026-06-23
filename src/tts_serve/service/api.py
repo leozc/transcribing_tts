@@ -329,6 +329,14 @@ def agent_info() -> dict:
                 "task is reachable by its owner (X-Client-Key) or its per-task pull_token "
                 "(X-Task-Token). Cross-client listing (/v1/tasks all, /v1/queue) requires the "
                 "TTS_SERVE_API_KEY bearer when configured.",
+        "notes": [
+            "Auth is by HTTP header and is intentionally NOT declared in /openapi.json "
+            "securitySchemes — X-Client-Key / X-Task-Token appear as optional params there, "
+            "but you MUST send them. A client generated purely from the spec will omit them "
+            "and get 401/403; read this guide for the auth contract, not just openapi.json.",
+            "Secrets are shown ONCE and cannot be re-fetched: persist the client_key (from "
+            "POST /v1/clients) and each pull_token (from create) the moment you receive them.",
+        ],
         "spec": {"openapi": "/openapi.json", "swagger_ui": "/docs"},
     }
 
