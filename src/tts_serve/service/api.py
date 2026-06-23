@@ -4,7 +4,7 @@
     POST /v1/tasks          JSON {source, client_id} + X-Client-Key  -> TaskRef
     POST /v1/tasks/upload   multipart file + client_id + X-Client-Key -> TaskRef
     GET  /v1/tasks/{id}                                            -> TaskStatus
-    GET  /v1/tasks/{id}/artifact   zip (200 done / 409 / 404)
+    GET  /v1/tasks/{id}/artifact   zip when done (202 processing / 409 failed / 404 expired)
     GET  /v1/tasks          your tasks (X-Client-Key) / all (admin) -> TaskList
     GET  /v1/queue          running + pending + counts             -> QueueStatus
     DELETE /v1/tasks/{id}   remove queued/done/failed (409 running)-> DeleteResult
@@ -28,7 +28,7 @@ import zipfile
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from tts_serve.service import store
 from tts_serve.service.logconf import setup_logging
@@ -238,12 +238,17 @@ def retry_task(tid: str, token: str | None = Depends(_pull_token),
 
 
 @app.get("/v1/tasks/{tid}/artifact",
-         responses={200: {"content": {"application/zip": {}}}, 409: {}, 404: {}})
+         responses={200: {"content": {"application/zip": {}}}, 202: {}, 409: {}, 404: {}})
 def get_artifact(tid: str, token: str | None = Depends(_pull_token),
                  client: str | None = Depends(_client_auth), _=Depends(_auth)):
     t = _owned(tid, token, client)
-    if t["status"] != "done":
-        raise HTTPException(409, f"task not done (status={t['status']})")
+    if t["status"] in ("queued", "running"):
+        # 202 Accepted: not an error — still processing, more coming. Keep polling.
+        return JSONResponse(status_code=202, content={
+            "task_id": tid, "status": t["status"], "stage": t["stage"],
+            "detail": f"still processing (poll /v1/tasks/{tid} until status=='done')"})
+    if t["status"] != "done":  # failed / cancelled -> no artifact will ever exist
+        raise HTTPException(409, f"task {t['status']}; no artifact")
     rdir = store.results_dir(tid)
     files = [p for p in rdir.glob("*") if p.is_file()] if rdir.exists() else []
     if not files:
@@ -276,14 +281,16 @@ def agent_info() -> dict:
             "or ?token=) OR your 'X-Client-Key'; poll 'status' until 'done' (stop on 'failed'/"
             "'cancelled'); 'stage' shows progress while status=='running'",
             "3. GET THE RESULT: once status=='done', GET /v1/tasks/{task_id}/artifact (same "
-            "auth) -> a .zip (HTTP 409 if you fetch before it is done, 404 if expired). Unzip "
-            "it: transcript.txt = readable transcript; subtitle.srt = SRT captions; "
-            "segments.json = machine format [{start,end,speaker,text}]; meta.json = run info.",
+            "auth) -> a .zip. HTTP 202 = still processing (not an error — keep polling); 409 = "
+            "task failed/cancelled (no artifact); 404 = expired. Unzip the 200: transcript.txt = "
+            "readable transcript; subtitle.srt = SRT captions; segments.json = machine format "
+            "[{start,end,speaker,text}]; meta.json = run info.",
             "List your own jobs anytime: GET /v1/tasks with header 'X-Client-Key' -> only your tasks.",
         ],
         "result": "The deliverable is the artifact zip from GET /v1/tasks/{task_id}/artifact, "
-                  "available ONLY when status=='done' (poll step 2 first; 409 before done, 404 "
-                  "after retention expiry). Authorize with the same X-Task-Token or owner "
+                  "available ONLY when status=='done' (poll step 2 first; 202 while still "
+                  "processing 'more coming', 409 if failed/cancelled, 404 after retention "
+                  "expiry). Authorize with the same X-Task-Token or owner "
                   "X-Client-Key. The zip contains: transcript.txt (human-readable), subtitle.srt "
                   "(captions), segments.json (canonical: {source, duration_s, speakers[], "
                   "segments[]{start,end,speaker,text}}), meta.json. curl example: "
@@ -318,7 +325,7 @@ def agent_info() -> dict:
              "returns": "{task_id, status, pull_token}",
              "example": "curl -H 'X-Client-Key: <key>' -F file=@meeting.wav -F client_id=alice -F speakers=2 <base>/v1/tasks/upload"},
             {"method": "GET", "path": "/v1/tasks/{id}", "returns": "TaskStatus (needs X-Task-Token or owner X-Client-Key)"},
-            {"method": "GET", "path": "/v1/tasks/{id}/artifact", "returns": "application/zip (200/409/404; needs X-Task-Token or owner X-Client-Key)"},
+            {"method": "GET", "path": "/v1/tasks/{id}/artifact", "returns": "application/zip when done; 202 still-processing / 409 failed-or-cancelled / 404 expired (needs X-Task-Token or owner X-Client-Key)"},
             {"method": "GET", "path": "/v1/tasks", "returns": "TaskList — your tasks (X-Client-Key) or all (admin bearer)",
              "example": "curl -H 'X-Client-Key: <key>' <base>/v1/tasks"},
             {"method": "GET", "path": "/v1/queue", "returns": "QueueStatus (admin: requires bearer)"},

@@ -585,6 +585,9 @@
               "application/zip": {}
             }
           },
+          "202": {
+            "description": "Accepted"
+          },
           "409": {
             "description": "Conflict"
           },

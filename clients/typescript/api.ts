@@ -669,6 +669,13 @@ export interface operations {
                     "application/zip": unknown;
                 };
             };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Not Found */
             404: {
                 headers: {

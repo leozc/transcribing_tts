@@ -304,6 +304,11 @@ def test_unknown_task_404(svc):
 def test_artifact_lifecycle(svc):
     store, _, client = svc
     tid, t = _enqueue(client)
+    # queued/running -> 202 Accepted ("more coming", not an error)
+    r = client.get(f"/v1/tasks/{tid}/artifact", headers=tok(t))
+    assert r.status_code == 202 and r.json()["status"] == "queued"
+    # failed/cancelled -> 409 (no artifact will ever exist)
+    store.update(tid, status="failed", error="boom")
     assert client.get(f"/v1/tasks/{tid}/artifact", headers=tok(t)).status_code == 409
     rdir = store.results_dir(tid)
     rdir.mkdir(parents=True, exist_ok=True)

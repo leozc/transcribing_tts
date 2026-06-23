@@ -181,7 +181,7 @@ generated client via `openapi-generator-cli` / `openapi-python-client` / `openap
 - `POST /v1/tasks` — queue a URL (JSON `{source, ...opts}` + `X-Client-Key`) → `{task_id, pull_token}`
 - `POST /v1/tasks/upload` — queue a file (multipart `file=@audio` + opts + `X-Client-Key`) → `{task_id, pull_token}`
 - `GET /v1/tasks/{id}` — status/stage; `GET /v1/tasks` — **your jobs** (`X-Client-Key`) or all (admin)
-- `GET /v1/tasks/{id}/artifact` — zip (200 done / 409 not-ready / 404)
+- `GET /v1/tasks/{id}/artifact` — zip when done (202 still-processing / 409 failed-or-cancelled / 404 expired)
 - `GET /v1/queue` — admin: what's running + the pending queue + counts
 - `DELETE /v1/tasks/{id}` — remove a queued/done/failed task (409 if running)
 - `POST /v1/tasks/{id}/retry` — requeue a failed/cancelled task
