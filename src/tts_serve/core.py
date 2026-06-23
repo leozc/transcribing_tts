@@ -19,9 +19,13 @@ from tts_serve.outputs import build_document, normalize_segments
 from tts_serve.sources import SourceOpts, resolve
 
 DEFAULT_MODEL = "microsoft/VibeVoice-ASR"
-# A single forward pass over long audio OOMs a 24GB card (~21GB at 20min); chunk
-# anything longer than this window. Each ~13.7min chunk peaks ~20GB. Env-overridable.
-DEFAULT_CHUNK_SECONDS = 820.0
+# Long audio OOMs a 24GB card in one pass; chunk anything longer than this window.
+# Measured peak VRAM is ~flat below ~1100s (600s->21.2GB, 820->21.3, 1100->21.3) then
+# climbs (1400->21.5, 1700-> OOM >22GB). So chunk size is NOT the VRAM lever — that's
+# max_new_tokens (the generation KV cache). 1000s maximizes throughput (fewest chunks /
+# fewest speaker seams) while keeping ~0.7GB headroom, clear of the ~1400s+ danger zone.
+# Env override: TTS_SERVE_CHUNK_SECONDS. For more headroom, lower max_new_tokens.
+DEFAULT_CHUNK_SECONDS = 1000.0
 
 
 def clip_and_normalize(src, dst, clip: str | None = None) -> None:

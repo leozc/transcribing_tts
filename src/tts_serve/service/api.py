@@ -349,7 +349,7 @@ def agent_info() -> dict:
             "Secrets are shown ONCE and cannot be re-fetched: persist the client_key (from "
             "POST /v1/clients) and each pull_token (from create) the moment you receive them.",
             "Long audio is handled automatically: the server CHUNKS anything longer than one "
-            "GPU pass (~14min), transcribes each piece, and MERGES into one transcript covering "
+            "GPU pass (~16min), transcribes each piece, and MERGES into one transcript covering "
             "the whole duration. Submit the FULL source — do NOT pre-clip to avoid 'GPU memory' "
             "(that only drops content; clip is just for sampling). While running you'll see "
             "stage='transcribing chunk i/n'; the result's segments.json has chunked=true and its "

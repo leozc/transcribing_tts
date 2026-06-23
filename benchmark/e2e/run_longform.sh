@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # E2E: long-form / OOM regression. Submit a video LONGER than one GPU pass; the SERVER
-# must chunk it (~820s/chunk), transcribe each with the resident model, offset
+# must chunk it (~1000s/chunk), transcribe each with the resident model, offset
 # timestamps, and MERGE into ONE unified transcript — no client-side clipping, no CUDA
 # OOM. (Before this, a single full pass OOM'd at ~21GB on the 24GB card.)
 # Usage: bash benchmark/e2e/run_longform.sh [base_url] [clip]

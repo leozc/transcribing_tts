@@ -24,11 +24,11 @@
     ]
   },
   "long_form": {
-    "description": "Long-form / OOM regression: a video longer than one GPU pass. The SERVER chunks it (~820s/chunk), transcribes each chunk with the resident model, offsets timestamps, and MERGES into ONE unified transcript — no client-side clipping, no CUDA OOM. Before this fix, a single full pass OOM'd at ~21GB on the 24GB card (the client had to clip to ~5min).",
+    "description": "Long-form / OOM regression: a video longer than one GPU pass. The SERVER chunks it (~1000s/chunk), transcribes each chunk with the resident model, offsets timestamps, and MERGES into ONE unified transcript — no client-side clipping, no CUDA OOM. Before this fix, a single full pass OOM'd at ~21GB on the 24GB card (the client had to clip to ~5min).",
     "request": {"method": "POST", "path": "/v1/tasks", "content_type": "application/json",
                 "headers": {"X-Client-Key": "<client_key>"},
                 "body": {"source": "https://youtu.be/3Amlu4y94Ho", "client_id": "longform", "clip": "0-1800", "name": "longform"}},
-    "expect": "status -> done (NOT failed/OOM). segments.json has chunked=true, chunk_seconds~820, last segment end ~1800s (full coverage). Runner: bash benchmark/e2e/run_longform.sh",
+    "expect": "status -> done (NOT failed/OOM). segments.json has chunked=true, chunk_seconds~1000, last segment end ~1800s (full coverage). Runner: bash benchmark/e2e/run_longform.sh",
     "full_video": "Omit the clip for the full 5069s (84.5min) video -> ~7 chunks, still one merged transcript. Run: bash benchmark/e2e/run_longform.sh http://localhost:39999 ''"
   },
   "note_auth": "Every POST /v1/tasks and /v1/tasks/upload carries the header 'X-Client-Key: <client_key>' from registration; without it the enqueue is 401. A client lists its own jobs with GET /v1/tasks + X-Client-Key (sees ONLY its tasks).",

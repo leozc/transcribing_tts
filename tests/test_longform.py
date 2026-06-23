@@ -53,15 +53,15 @@ def test_transcribe_source_routes_by_duration(monkeypatch, tmp_path):
     monkeypatch.setattr(core, "normalize_segments", lambda segs: [dict(s) for s in segs])
 
     asr = _FakeASR()
-    # short: 300s < 820s default -> single pass (1 call), chunked False
+    # short: 300s < 820s chunk -> single pass (1 call), chunked False
     monkeypatch.setattr(core, "_duration", lambda w: 300.0)
-    doc = core.transcribe_source("u://x", workdir=tmp_path, asr=asr)
+    doc = core.transcribe_source("u://x", workdir=tmp_path, asr=asr, chunk_seconds=820)
     assert asr.calls == 1 and doc.get("chunked") is False
 
     # long: 2000s > 820s -> chunked (3 calls: 0/820/1640), chunked True
     asr.calls = 0
     monkeypatch.setattr(core, "_duration", lambda w: 2000.0)
-    doc = core.transcribe_source("u://x", workdir=tmp_path, asr=asr)
+    doc = core.transcribe_source("u://x", workdir=tmp_path, asr=asr, chunk_seconds=820)
     assert asr.calls == 3 and doc.get("chunked") is True and doc.get("chunk_seconds") == 820.0
 
 
