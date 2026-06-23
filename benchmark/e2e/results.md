@@ -57,3 +57,26 @@ zip = `{transcript.txt, subtitle.srt, segments.json, meta.json}`. Saved in `clie
 - **Clients see their own jobs**: `GET /v1/tasks` with `X-Client-Key` returns only that
   client's tasks (authenticated identity — `client_id` alone can't be spoofed to list).
 - A single task is reachable by its owner (`X-Client-Key`) or its per-task `pull_token`.
+
+## Long-form / OOM regression — full 84.5-min video (server-side chunking)
+
+The exact case that an agent could previously only do 5 min of (the full video OOM'd
+twice with `CUDA out of memory`, so it fell back to `clip:"0-300"`). Submitted whole,
+no clip — the **server** chunked + merged it. Runner: `benchmark/e2e/run_longform.sh`.
+
+```
+stage timeline:  queued -> preprocessing -> transcribing chunk 1/7 -> ... -> 7/7 -> done
+result (segments.json):
+  status=done   chunked=true   chunk_seconds=820   peak_vram_gb=21.27 (< 22GB, no OOM)
+  duration_s=5069.31   n_segments=357   last_seg_end=5069s (FULL coverage)   speakers=4
+  first: "All right everybody, welcome back to the number one podcast in the world..."
+  last : "[Music]"
+```
+
+Takeaways:
+- A single full pass OOM'd at ~21GB; chunking into 7×~13.7min pieces keeps each pass
+  under the ceiling and covers the **entire** 84.5min in one merged transcript.
+- The client did nothing special: same submit -> poll -> pull. It saw `stage=transcribing
+  chunk i/n` while running, `200` artifact at `done` (`202` if fetched early).
+- `meta.json`/`segments.json` record `chunked=true` + `chunk_seconds` so consumers can
+  see long-form was applied. (Speakers are unified across chunks when `reid=true`.)
