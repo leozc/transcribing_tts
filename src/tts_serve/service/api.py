@@ -336,6 +336,12 @@ def agent_info() -> dict:
             "and get 401/403; read this guide for the auth contract, not just openapi.json.",
             "Secrets are shown ONCE and cannot be re-fetched: persist the client_key (from "
             "POST /v1/clients) and each pull_token (from create) the moment you receive them.",
+            "Long audio is handled automatically: the server CHUNKS anything longer than one "
+            "GPU pass (~14min), transcribes each piece, and MERGES into one transcript covering "
+            "the whole duration. Submit the FULL source — do NOT pre-clip to avoid 'GPU memory' "
+            "(that only drops content; clip is just for sampling). While running you'll see "
+            "stage='transcribing chunk i/n'; the result's segments.json has chunked=true and its "
+            "last segment reaches the full duration. A long video just takes longer, never OOMs.",
         ],
         "spec": {"openapi": "/openapi.json", "swagger_ui": "/docs"},
     }
